@@ -74,9 +74,13 @@ Every completed request logs, e.g., `GET /v1/health -> 200 (13ms) [a1b2c3d4]`. R
 - Configure provider-edge/distributed rate limiting for login and registration and email verification/password reset before public launch. There is no claim that NestJS memory-based limits are globally enforced across Vercel functions.
 - Add permission-based admin policies, e.g. `product.edit`, `order.refund`, `stock.adjust`. Current admin guarding checks STAFF/ADMIN/OWNER role on `/admin/auth/me` only.
 - Implement staged DB changes, integration tests against real PostgreSQL, proper migrations/backups/restore checks, observability and deployment smoke tests.
-- CRUD product, order, checkout, payment, media and queue features are later phases. The new catalog models define canonical IDs; **no demo fixtures imported**.
+- Catalog product/category CRUD arrives in Phase 03A (pending local acceptance); inventory ledger, orders, checkout, payment, media and queue features are later phases. Canonical IDs are preserved; **no demo fixtures imported**.
 - For Vercel Functions, use hosted PostgreSQL with connection pooling, separate migration/direct URL, and do not place media on ephemeral function filesystem.
 
 ## Deployment constraints
 
 Node 24.11+, Prisma 7 with driver adapter and generated CommonJS Prisma Client. `npm run build` regenerates Prisma Client then compiles NestJS; do not skip `prisma generate` on fresh CI installs. `NODE_ENV=production` requires explicit exact HTTPS CORS origins, database URL and strong JWT secret. Swagger defaults off in production; ensure `SWAGGER_ENABLED=false` for public commercial stores.
+
+## Phase 03A catalog (unverified local acceptance)
+
+Catalog GET/CRUD, variants, and migration are added in this patch. See [`docs/PHASE03A_CATALOG.md`](docs/PHASE03A_CATALOG.md) for the complete API scope, safe local deployment, and required test gates. Do not connect either frontend or treat these routes as production-ready until local PostgreSQL and security tests pass.

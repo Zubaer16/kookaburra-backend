@@ -81,6 +81,7 @@ model Category {
   id          String       @id @default(uuid()) @db.Uuid
   slug        String       @unique @db.VarChar(160)
   name        String       @db.VarChar(200)
+  description String       @default("") @db.Text
   parentId    String?      @map("parent_id") @db.Uuid
   parent      Category?    @relation("CategoryTree", fields: [parentId], references: [id], onDelete: Restrict)
   children    Category[]   @relation("CategoryTree")
@@ -96,10 +97,12 @@ model Product {
   id             String         @id @default(uuid()) @db.Uuid
   slug           String         @unique @db.VarChar(200)
   title          String         @db.VarChar(250)
+  sku            String?        @unique @db.VarChar(120)
   description    String         @default("") @db.Text
   status         ProductStatus  @default(DRAFT)
   currency       String         @default("USD") @db.VarChar(3)
   priceMinor     Int            @map("price_minor")
+  compareAtMinor Int?           @map("compare_at_minor")
   // Simple product: stockOnHand is authoritative. With variants: variant stock is.
   hasVariants    Boolean        @default(false) @map("has_variants")
   stockOnHand    Int            @default(0) @map("stock_on_hand")

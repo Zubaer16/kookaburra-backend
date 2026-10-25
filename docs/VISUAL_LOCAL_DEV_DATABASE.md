@@ -1,6 +1,6 @@
 # Swagger Visual Walkthrough — LOCAL Development PostgreSQL
 
-**Purpose:** Watch Swagger perform real HTTP requests against *your* existing local `kookaburra-api-dev` database and then inspect newly created rows in pgAdmin. This differs from the disposable test database used by `test:api:visual:all`.
+**Purpose:** Watch Swagger perform real HTTP requests against _your_ existing local `kookaburra-api-dev` database and then inspect newly created rows in pgAdmin. This differs from the disposable test database used by `test:api:visual:all`.
 
 ## Prerequisites
 
@@ -19,7 +19,7 @@ The launcher reads `.env`, validates both the connection URL and the actual data
 
 **Writes new data:** A uniquely named `visual-dev-customer-...@example.test` account and `visual-dev-staff-...@example.test` account. Both rows are retained for you to inspect. The temporary STAFF account is disabled on normal test completion/failure and any sessions produced by the walkthrough are revoked; actual customer/admin accounts are not touched. If you forcibly kill the process while a temporary STAFF account is enabled, inspect the new `visual-dev-staff-` rows and **disable that temporary account** before continuing development.
 
-No existing rows are deleted, and no products/orders are created (those endpoints do not exist in Phase 02). Repeat runs create new inspection accounts. Never run this command with client/production data, and do not commit or publish Swagger reports/traces because request bodies and test tokens can appear inside them.
+No existing rows are deleted, and this visual walkthrough creates no products or orders (Phase 03A catalog endpoints now exist but are not exercised by this mode). Repeat runs create new inspection accounts. Never run this command with client/production data, and do not commit or publish Swagger reports/traces because request bodies and test tokens can appear inside them.
 
 ## Inspect the data
 

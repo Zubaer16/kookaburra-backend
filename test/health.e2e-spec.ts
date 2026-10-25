@@ -2,7 +2,7 @@ import { INestApplication } from '@nestjs/common'
 import request from 'supertest'
 import { createHttpApp } from '../src/bootstrap'
 
-describe('Phase 02 API smoke tests (no real database)', () => {
+describe('Phase 03A API smoke tests (no real database)', () => {
   let app: INestApplication
   beforeAll(async () => {
     app = await createHttpApp()
@@ -33,10 +33,35 @@ describe('Phase 02 API smoke tests (no real database)', () => {
       'System / Health',
       'Authentication / Customer',
       'Authentication / Admin',
+      'Catalog / Storefront',
+      'Catalog / Admin',
     ])
   })
-  it('keeps commerce endpoints unavailable until Phase 03/04', async () => {
-    await request(app.getHttpServer()).get('/v1/products').expect(404)
+  it('publishes Phase 03A catalog routes without requiring a database', async () => {
+    const response = await request(app.getHttpServer())
+      .get('/docs-json')
+      .expect(200)
+    for (const path of [
+      '/v1/categories',
+      '/v1/products',
+      '/v1/products/{slug}',
+      '/v1/admin/categories',
+      '/v1/admin/products',
+    ]) {
+      expect(response.body.paths).toHaveProperty(path)
+    }
+  })
+
+  it('guards admin catalog routes before accessing a database', async () => {
+    await request(app.getHttpServer()).get('/v1/admin/products').expect(401)
+    await request(app.getHttpServer())
+      .post('/v1/admin/categories')
+      .send({ name: 'Test', slug: 'test' })
+      .expect(401)
+  })
+
+  it('rejects invalid public catalog query without a database', async () => {
+    await request(app.getHttpServer()).get('/v1/products?page=0').expect(400)
   })
   it('allows trusted frontend origins', async () => {
     await request(app.getHttpServer())

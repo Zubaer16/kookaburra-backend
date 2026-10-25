@@ -1,0 +1,185 @@
+import { Type } from 'class-transformer'
+import {
+  ArrayMaxSize,
+  ArrayMinSize,
+  ArrayUnique,
+  IsArray,
+  IsEnum,
+  IsInt,
+  IsObject,
+  IsOptional,
+  IsString,
+  IsUUID,
+  Matches,
+  Max,
+  MaxLength,
+  Min,
+  MinLength,
+  ValidateNested,
+} from 'class-validator'
+import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger'
+
+const MONEY_MAX = 2_147_483_647
+
+export class CreateCategoryDto {
+  @ApiProperty()
+  @IsString()
+  @MinLength(1)
+  @MaxLength(200)
+  name!: string
+
+  @ApiProperty()
+  @IsString()
+  @Matches(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
+  @MaxLength(160)
+  slug!: string
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @MaxLength(3000)
+  description?: string
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsUUID()
+  parentId?: string | null
+}
+export class UpdateCategoryDto extends PartialType(CreateCategoryDto) {}
+
+export class VariantOptionsDto {
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  size?: string
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  color?: string
+}
+export class CreateVariantDto {
+  @ApiProperty()
+  @IsString()
+  @MinLength(1)
+  @MaxLength(120)
+  sku!: string
+  @ApiProperty({ type: VariantOptionsDto })
+  @IsObject()
+  @ValidateNested()
+  @Type(() => VariantOptionsDto)
+  options!: VariantOptionsDto
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  @Max(MONEY_MAX)
+  priceMinor?: number | null
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  @Max(MONEY_MAX)
+  stockOnHand?: number
+}
+export class UpdateVariantDto extends PartialType(CreateVariantDto) {}
+
+export enum CatalogProductStatus {
+  DRAFT = 'DRAFT',
+  ACTIVE = 'ACTIVE',
+  ARCHIVED = 'ARCHIVED',
+}
+export class CreateProductDto {
+  @ApiProperty()
+  @IsString()
+  @MinLength(1)
+  @MaxLength(250)
+  title!: string
+  @ApiProperty()
+  @IsString()
+  @Matches(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
+  @MaxLength(200)
+  slug!: string
+  @ApiProperty()
+  @IsString()
+  @MinLength(1)
+  @MaxLength(120)
+  sku!: string
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @MaxLength(10000)
+  description?: string
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsEnum(CatalogProductStatus)
+  status?: CatalogProductStatus
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @Matches(/^[A-Z]{3}$/)
+  currency?: string
+  @ApiProperty()
+  @IsInt()
+  @Min(0)
+  @Max(MONEY_MAX)
+  priceMinor!: number
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  @Max(MONEY_MAX)
+  compareAtMinor?: number | null
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  @Max(MONEY_MAX)
+  stockOnHand?: number
+  @ApiProperty({ type: [String] })
+  @IsArray()
+  @ArrayMinSize(1)
+  @ArrayMaxSize(30)
+  @ArrayUnique()
+  @IsUUID('all', { each: true })
+  categoryIds!: string[]
+  @ApiPropertyOptional({ type: [CreateVariantDto] })
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(100)
+  @ValidateNested({ each: true })
+  @Type(() => CreateVariantDto)
+  variants?: CreateVariantDto[]
+}
+/** Variant changes are separate endpoints to avoid replacing existing variants by accident. */
+export class UpdateProductDto extends PartialType(CreateProductDto) {}
+export class ProductQueryDto {
+  @ApiPropertyOptional()
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  page?: number
+  @ApiPropertyOptional()
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(100)
+  limit?: number
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  search?: string
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @Matches(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
+  category?: string
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsEnum(CatalogProductStatus)
+  status?: CatalogProductStatus
+}

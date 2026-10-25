@@ -25,6 +25,8 @@ test.describe('System & OpenAPI', () => {
       'System / Health',
       'Authentication / Customer',
       'Authentication / Admin',
+      'Catalog / Storefront',
+      'Catalog / Admin',
     ])
     for (const endpoint of [
       '/v1/health',
@@ -35,19 +37,33 @@ test.describe('System & OpenAPI', () => {
       '/v1/auth/me',
       '/v1/admin/auth/login',
       '/v1/admin/auth/me',
+      '/v1/categories',
+      '/v1/products',
+      '/v1/products/{slug}',
+      '/v1/admin/categories',
+      '/v1/admin/products',
     ]) {
       expect(doc.paths, `Missing OpenAPI path ${endpoint}`).toHaveProperty(
         endpoint,
       )
     }
-    expect(doc.paths).not.toHaveProperty('/v1/products')
   })
 
-  test('unknown commerce route is 404 until implemented', async ({
+  test('invalid catalog query is rejected before accessing a database', async ({
     request,
   }) => {
-    const res = await request.get('/v1/products')
-    expect(res.status()).toBe(404)
+    const res = await request.get('/v1/products?page=0')
+    expect(res.status()).toBe(400)
+  })
+
+  test('admin catalog routes are protected without a bearer token', async ({
+    request,
+  }) => {
+    expect((await request.get('/v1/admin/products')).status()).toBe(401)
+    const write = await request.post('/v1/admin/categories', {
+      data: { name: 'Test', slug: 'test' },
+    })
+    expect(write.status()).toBe(401)
   })
 
   test('trusted localhost origin is allowed', async ({ request }) => {

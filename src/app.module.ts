@@ -4,6 +4,7 @@ import { validateEnvironment } from './config/environment'
 import { HealthModule } from './health/health.module'
 import { DatabaseModule } from './database/database.module'
 import { AuthModule } from './auth/auth.module'
+import { CatalogModule } from './catalog/catalog.module'
 
 @Module({
   imports: [
@@ -11,6 +12,7 @@ import { AuthModule } from './auth/auth.module'
     HealthModule,
     DatabaseModule,
     AuthModule,
+    CatalogModule,
   ],
 })
 export class AppModule {}

@@ -10,6 +10,6 @@ import { CustomerAuthController } from './customer-auth.controller'
   imports: [JwtModule.register({})],
   controllers: [CustomerAuthController, AdminAuthController],
   providers: [AuthService, AccessGuard, AdminGuard],
-  exports: [AccessGuard, AdminGuard],
+  exports: [JwtModule, AccessGuard, AdminGuard],
 })
 export class AuthModule {}

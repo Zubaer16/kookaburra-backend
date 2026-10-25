@@ -68,6 +68,14 @@ export async function createHttpApp(): Promise<INestApplication> {
         'Authentication / Admin',
         'Back-office identity (no public staff sign-up)',
       )
+      .addTag(
+        'Catalog / Storefront',
+        'Public categories and active product catalogue',
+      )
+      .addTag(
+        'Catalog / Admin',
+        'Protected category, product and variant management',
+      )
       .build()
     const document = SwaggerModule.createDocument(app, docConfig)
     SwaggerModule.setup('docs', app, document, {
