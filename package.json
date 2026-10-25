@@ -1,7 +1,7 @@
 {
-  "name": "kookaburra-api",
+  "name": "kookaburra-backend",
   "version": "0.2.0",
-  "description": "Independent, white-label NestJS REST API for Kookaburra ecommerce",
+  "description": "Independent, white-label NestJS backend and REST API for Kookaburra ecommerce",
   "private": true,
   "license": "UNLICENSED",
   "scripts": {
@@ -26,7 +26,9 @@
     "test:api:report": "node scripts/run-api-tests.cjs report",
     "test:api:visual:smoke": "npm run build && node scripts/run-api-tests.cjs visual-smoke",
     "test:api:visual:all": "npm run build && node scripts/run-api-tests.cjs visual-db",
-    "test:api:visual:report": "node scripts/run-api-tests.cjs visual-report"
+    "test:api:visual:report": "node scripts/run-api-tests.cjs visual-report",
+    "test:api:visual:dev": "npm run build && node scripts/run-api-dev-inspect.cjs",
+    "test:api:security": "npm run build && node scripts/run-api-tests.cjs security"
   },
   "engines": {
     "node": ">=24.11.0 <25"

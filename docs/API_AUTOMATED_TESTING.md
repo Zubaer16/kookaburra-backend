@@ -6,7 +6,7 @@ This patch adds optional **Playwright API-only tests** without downloading a bro
 ## A. Safe smoke tests (no database necessary)
 
 ```powershell
-cd "C:\Users\zubaer.ahmed\Desktop\git\kookaburra-api"
+cd "C:\Users\zubaer.ahmed\Desktop\git\kookaburra-backend"
 npm install
 npm run test:api:smoke
 npm run test:api:report
@@ -27,7 +27,7 @@ These tests create and delete disposable customer/staff rows and sessions. **Nev
 3. Run the preflight-gated migration, then the DB tests:
 
 ```powershell
-cd "C:\Users\zubaer.ahmed\Desktop\git\kookaburra-api"
+cd "C:\Users\zubaer.ahmed\Desktop\git\kookaburra-backend"
 Copy-Item .env.api-test.example .env.api-test
 notepad .env.api-test
 npm run test:api:db:deploy

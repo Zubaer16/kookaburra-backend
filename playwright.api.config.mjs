@@ -18,6 +18,7 @@ export default defineConfig({
   projects: [
     { name: 'smoke', testMatch: /\.smoke\.spec\.ts$/ },
     { name: 'db', testMatch: /\.db\.spec\.ts$/ },
+    { name: 'security', testMatch: /\.security\.spec\.ts$/ },
   ],
   workers: 1,
   retries: 0,

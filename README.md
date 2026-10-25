@@ -1,4 +1,4 @@
-# Kookaburra API — Phase 02 (persistence + identity)
+# Kookaburra Backend — Phase 02 (persistence + identity)
 
 Independent, single-store NestJS backend. **Kookaburra is only the author's demo/project name.** Each client deploys its own store, database, credentials, domain and hosting. Existing Next.js Admin and Storefront repos remain unchanged.
 
@@ -6,7 +6,9 @@ Independent, single-store NestJS backend. **Kookaburra is only the author's demo
 
 ## Install/update — Node 24.11+ / PowerShell
 
-1. Download and extract the `.tar.gz` patch to the existing `kookaburra-api` repo root.
+The repository and npm package name are now `kookaburra-backend`. The existing local development PostgreSQL database remains `kookaburra-api-dev`, and the isolated API test database remains `kookaburra_api_test` on purpose. Do not rename either database or change API routes as part of this repository rename. See `docs/REPOSITORY_RENAME.md`.
+
+1. Download and extract the `.tar.gz` patch to the existing `kookaburra-backend` repo root.
 2. `nvm use 24` then `node -v` (require `v24.11.0` or newer within v24).
 3. `npm install` — important: dependencies have changed. Commit its refreshed `package-lock.json`.
 4. If absent, `Copy-Item .env.example .env`, then edit `.env` locally. The file must never enter Git. If already present, **add new variables manually**; do not overwrite existing `.env`.

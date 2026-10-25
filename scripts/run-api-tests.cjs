@@ -10,17 +10,29 @@ const { config } = require('dotenv')
 
 const root = path.resolve(__dirname, '..')
 const mode = process.argv[2]
-const allowed = ['smoke', 'db', 'db-deploy', 'report', 'visual-smoke', 'visual-db', 'visual-report']
+const allowed = [
+  'smoke',
+  'db',
+  'db-deploy',
+  'report',
+  'visual-smoke',
+  'visual-db',
+  'visual-report',
+  'security',
+]
 if (!allowed.includes(mode)) {
   process.stderr.write(
-    'Usage: node scripts/run-api-tests.cjs smoke|db|db-deploy|report|visual-smoke|visual-db|visual-report\n',
+    'Usage: node scripts/run-api-tests.cjs smoke|db|db-deploy|security|report|visual-smoke|visual-db|visual-report\n',
   )
   process.exit(2)
 }
 
 const env = { ...process.env }
 const testEnvPath = path.join(root, '.env.api-test')
-if (!['smoke', 'visual-smoke', 'report', 'visual-report'].includes(mode) && existsSync(testEnvPath)) {
+if (
+  !['smoke', 'visual-smoke', 'report', 'visual-report'].includes(mode) &&
+  existsSync(testEnvPath)
+) {
   // Store ONLY API_TEST_DATABASE_URL here. Never load ordinary .env for tests.
   const vars = config({ path: testEnvPath, processEnv: {} }).parsed || {}
   if (!env.API_TEST_DATABASE_URL && vars.API_TEST_DATABASE_URL) {
@@ -121,7 +133,11 @@ try {
     run(
       cli,
       mode === 'visual-smoke'
-        ? ['test', '--config=playwright.swagger.config.mjs', '--project=visual-smoke']
+        ? [
+            'test',
+            '--config=playwright.swagger.config.mjs',
+            '--project=visual-smoke',
+          ]
         : ['test', '--config=playwright.api.config.mjs', '--project=smoke'],
       clean,
     )
@@ -142,8 +158,14 @@ try {
   run(
     cli,
     mode === 'visual-db'
-      ? ['test', '--config=playwright.swagger.config.mjs', '--project=visual-db']
-      : ['test', '--config=playwright.api.config.mjs', '--project=db'],
+      ? [
+          'test',
+          '--config=playwright.swagger.config.mjs',
+          '--project=visual-db',
+        ]
+      : mode === 'security'
+        ? ['test', '--config=playwright.api.config.mjs', '--project=security']
+        : ['test', '--config=playwright.api.config.mjs', '--project=db'],
     safe,
   )
 } catch (error) {

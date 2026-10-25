@@ -40,7 +40,7 @@ export async function swaggerExecute(
       return (
         response.request().method() === method &&
         url.pathname === endpoint &&
-        url.host === '127.0.0.1:4101'
+        url.host === new URL(page.url()).host
       )
     } catch {
       return false
@@ -52,9 +52,9 @@ export async function swaggerExecute(
 
   const live = operation.locator('.live-responses-table')
   await expect(live).toBeVisible()
-  await expect(live.locator('.response-col_status').first()).toContainText(
-    String(expectedStatus),
-  )
+  await expect(
+    live.locator('tbody tr .response-col_status').first(),
+  ).toContainText(String(expectedStatus))
   // Keep executed response on screen for human observation.
   await page.waitForTimeout(1200)
   console.log(`Swagger UI Execute: ${method} ${endpoint} -> ${expectedStatus}`)

@@ -21,7 +21,7 @@ Future Catalog/Orders/Payments endpoints **are not yet implemented**, so visual 
 
 ## Quick visual smoke — does not need PostgreSQL
 
-1. In `kookaburra-api`: `npm run check` (resolve any unrelated failures first).
+1. In `kookaburra-backend`: `npm run check` (resolve any unrelated failures first).
 2. Install browser once: `npx playwright install chromium`.
 3. `npm run test:api:visual:smoke`.
 
