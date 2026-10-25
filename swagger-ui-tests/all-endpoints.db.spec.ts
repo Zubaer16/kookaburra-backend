@@ -34,11 +34,10 @@ function temporaryCredentials() {
   }
 }
 
-// Exercises EVERY currently implemented route through its Swagger UI Execute
-// button. Only randomly created test accounts are used and deleted afterward.
-test('Watch Swagger Execute all 8 implemented API endpoints', async ({
-  page,
-}) => {
+// Exercises the 8 Phase 02 auth/health routes via Swagger UI Execute.
+// The 15 Phase 03A Catalog routes live in catalog.db.spec.ts. Only randomly
+// created test accounts are used and deleted afterward.
+test('Watch Swagger Execute the 8 Phase 02 API endpoints', async ({ page }) => {
   const prisma = testPrisma()
   let customerId: string | undefined
   let staffId: string | undefined

@@ -1,4 +1,4 @@
-# Visual Swagger API Tests — Kookaburra v2 Phase 02
+# Visual Swagger API Tests — Kookaburra v2 Phase 02 + 03A
 
 This patch **supersedes** `kookaburra-api-swagger-ui-headed-playwright-20261020.tar.gz`. Do not apply the old visual patch.
 
@@ -6,7 +6,7 @@ This patch **supersedes** `kookaburra-api-swagger-ui-headed-playwright-20261020.
 
 A headed Chromium browser opens a real Swagger UI and automatically performs **Try it out → Execute**. It validates actual HTTP responses and Swagger's rendered status. Tests pause between steps, and the terminal also prints endpoint/status logs.
 
-Current implemented API inventory (**8 endpoints**):
+Phase 02 endpoint inventory (**8 authentication/health endpoints**):
 
 1. `GET /v1/health`
 2. `POST /v1/auth/register`
@@ -17,7 +17,7 @@ Current implemented API inventory (**8 endpoints**):
 7. `POST /v1/admin/auth/login`
 8. `GET /v1/admin/auth/me`
 
-Future Catalog/Orders/Payments endpoints **are not yet implemented**, so visual tests cannot execute them now.
+Phase 03A adds **15 Catalog operations**, exercised in `swagger-ui-tests/catalog.db.spec.ts` with positive and negative/boundary Chromium Swagger Execute tests. Total current route inventory is 23 (8 Phase 02 + 15 Catalog). Orders/Payments/Inventory/Media remain future phases.
 
 ## Quick visual smoke — does not need PostgreSQL
 
@@ -38,8 +38,12 @@ This starts a fresh test server on **port 4101**, not your normal dev API on 400
 5. `npm run test:api:visual:all`.
 6. `npm run test:api:visual:report` for an HTML Playwright report.
 
-The test server runs automatically on **4101**; don't manually start it. Port 4101 must be free. It covers all 8 currently documented endpoints, including real customer registration/login/refresh/logout, authorized customer profile, temporary staff login and authorized admin profile. Temporary users are deleted on normal test completion or handled test failures; unexpected process termination can leave test-only rows in the isolated database.
+The test server runs automatically on **4101**; don't manually start it. Port 4101 must be free. It covers all 23 currently documented endpoints (8 existing + 15 Catalog), including real customer registration/login/refresh/logout, authorized customer profile, temporary staff login and authorized admin profile. Temporary users are deleted on normal test completion or handled test failures; unexpected process termination can leave test-only rows in the isolated database.
 
 **Server logs**: for a _separate_ human-visible server terminal, use `npm run dev` on port 4000 and Swagger there for manual clicks. Automated visual tests launch their own 4101 server, so the HTTP requests appear in the Playwright/test-process terminal, not the unrelated 4000 dev terminal.
 
 **Safety and limitations:** One random customer and one random temporary STAFF account may be created. The suite never changes your real OWNER credentials, never invokes an existing user, and never writes test data to the development database. Test tokens/passwords appear transiently inside your local Swagger browser as part of the demonstration; don't screen-share or save traces publicly. On test failure, screenshots and traces are kept locally. Network/install/run validation still needs to occur on your Windows computer.
+
+## Phase 03A negative / boundary / RBAC coverage
+
+`npm run test:api:visual:all` now also drives Swagger UI PATCH/DELETE and path/query parameters, tests negative and oversized data, duplicate SKU, wrong roles and rejected requests with an isolated local PostgreSQL backend. `npm run test:api:security` adds dedicated Catalog security tests. `npm run test:api:smoke` adds a no-DB OpenAPI route/authorization/DTO contract test. See `docs/PHASE03A_TEST_COVERAGE.md`.

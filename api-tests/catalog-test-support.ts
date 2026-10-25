@@ -1,0 +1,130 @@
+import { expect, type APIRequestContext } from '@playwright/test'
+import { randomUUID } from 'node:crypto'
+import { PrismaPg } from '@prisma/adapter-pg'
+import { PrismaClient } from '../src/generated/prisma/client'
+
+/** Shared isolation/cleanup for Catalog visual, security and HTTP integration
+ * tests. Never connect outside the guarded LOCAL kookaburra_api_test database.
+ */
+export function catalogTestDatabase(): PrismaClient {
+  const connection = process.env.DATABASE_URL
+  if (
+    process.env.API_TEST_MODE !== 'db' ||
+    process.env.API_TEST_PORT !== '4101' ||
+    !connection
+  )
+    throw new Error(
+      'Use guarded npm run test:api:visual:all or test:api:security',
+    )
+  const url = new URL(connection)
+  if (
+    !['postgres:', 'postgresql:'].includes(url.protocol) ||
+    !['localhost', '127.0.0.1', '[::1]'].includes(url.hostname.toLowerCase()) ||
+    decodeURIComponent(url.pathname.slice(1)) !== 'kookaburra_api_test'
+  )
+    throw new Error('Refusing nonlocal, production or dev DB')
+  return new PrismaClient({
+    adapter: new PrismaPg({ connectionString: connection }),
+  })
+}
+
+export type CatalogRole = 'CUSTOMER' | 'STAFF' | 'ADMIN' | 'OWNER'
+export class CatalogTestFixture {
+  readonly key = randomUUID().slice(0, 8)
+  readonly db = catalogTestDatabase()
+  private readonly emails: string[] = []
+
+  constructor(private readonly request: APIRequestContext) {}
+
+  slug(label: string): string {
+    return `qa-${this.key}-${label}`
+  }
+  sku(label: string): string {
+    return `QA-${this.key}-${label}`.toUpperCase()
+  }
+
+  async account(role: CatalogRole) {
+    const email = `catalog-${this.key}-${role.toLowerCase()}-${randomUUID()}@example.test`
+    const password = `Catalog-${randomUUID()}-Aa1!`
+    this.emails.push(email)
+    const registered = await this.request.post('/v1/auth/register', {
+      data: { email, password },
+    })
+    expect(registered.status()).toBe(201)
+    const created = (await registered.json()) as {
+      user: { id: string }
+      accessToken: string
+    }
+    if (role !== 'CUSTOMER') {
+      await this.db.user.update({
+        where: { id: created.user.id },
+        data: { role },
+      })
+      const login = await this.request.post('/v1/admin/auth/login', {
+        data: { email, password },
+      })
+      expect(login.status()).toBe(200)
+      const data = (await login.json()) as { accessToken: string }
+      return { id: created.user.id, token: data.accessToken, email }
+    }
+    return { id: created.user.id, token: created.accessToken, email }
+  }
+
+  async close() {
+    try {
+      // Own namespace only; no DB reset, no globally destructive delete.
+      const products = await this.db.product.findMany({
+        where: { slug: { startsWith: `qa-${this.key}-` } },
+        select: { id: true },
+      })
+      const productIds = products.map((product) => product.id)
+      if (productIds.length) {
+        await this.db.productVariant.deleteMany({
+          where: { productId: { in: productIds } },
+        })
+        await this.db.product.deleteMany({ where: { id: { in: productIds } } })
+      }
+      // Children must be removed before parents.
+      const categories = await this.db.category.findMany({
+        where: { slug: { startsWith: `qa-${this.key}-` } },
+        select: { id: true },
+      })
+      const ids = categories.map((category) => category.id)
+      if (ids.length) {
+        await this.db.category.updateMany({
+          where: { id: { in: ids } },
+          data: { parentId: null },
+        })
+        await this.db.category.deleteMany({ where: { id: { in: ids } } })
+      }
+      const actors = await this.db.user.findMany({
+        where: { email: { in: this.emails } },
+        select: { id: true },
+      })
+      const actorIds = actors.map((actor) => actor.id)
+      if (actorIds.length) {
+        await this.db.auditEvent.deleteMany({
+          where: { actorId: { in: actorIds } },
+        })
+        await this.db.user.deleteMany({ where: { id: { in: actorIds } } })
+      }
+    } finally {
+      await this.db.$disconnect()
+    }
+  }
+}
+
+export const bearer = (token: string) => ({ Authorization: `Bearer ${token}` })
+
+export async function assertSafeError(
+  response: { status(): number; json(): Promise<unknown> },
+  code: number,
+) {
+  expect(response.status()).toBe(code)
+  const payload = await response.json()
+  const serialized = JSON.stringify(payload)
+  expect(serialized).not.toMatch(
+    /PrismaClient|stack trace|passwordHash|DATABASE_URL|SELECT\s+.+FROM/i,
+  )
+  return payload
+}

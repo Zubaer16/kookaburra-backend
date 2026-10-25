@@ -1,16 +1,21 @@
 import { expect, type Page, type Response } from '@playwright/test'
 import { URL } from 'node:url'
 
-/**
- * Perform an actual Swagger UI Try it out -> Execute click.
- * Assertions check BOTH the HTTP response and its live rendering in Swagger.
+export type SwaggerMethod = 'GET' | 'POST' | 'PATCH' | 'PUT' | 'DELETE'
+type Params = Record<string, string | number>
+
+/** Execute a real Swagger UI operation and assert the browser's network
+ * response AND the status shown by Swagger. Existing Phase 02 call sites are
+ * backward-compatible; the optional params handle templated path/query APIs.
  */
 export async function swaggerExecute(
   page: Page,
-  method: 'GET' | 'POST',
+  method: SwaggerMethod,
   endpoint: string,
   expectedStatus: number,
-  body?: Record<string, string>,
+  body?: unknown,
+  pathParams: Params = {},
+  queryParams: Params = {},
 ): Promise<Response> {
   const escaped = endpoint.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
   const operation = page
@@ -29,18 +34,47 @@ export async function swaggerExecute(
   }
   const tryButton = operation.getByRole('button', { name: 'Try it out' })
   if (await tryButton.isVisible()) await tryButton.click()
-  if (body) {
+
+  for (const [location, values] of [
+    ['path', pathParams],
+    ['query', queryParams],
+  ] as const) {
+    for (const [key, value] of Object.entries(values)) {
+      const row = operation.locator(
+        `tr[data-param-name="${key}"][data-param-in="${location}"]`,
+      )
+      await expect(row, `Swagger ${location} parameter ${key}`).toHaveCount(1)
+      const input = row
+        .locator('input:not([type="checkbox"]), textarea, select')
+        .first()
+      await expect(input).toBeVisible()
+      await input.fill(String(value))
+    }
+  }
+
+  if (body !== undefined) {
     const editor = operation.locator('textarea.body-param__text')
     await expect(editor).toBeVisible()
-    await editor.fill(JSON.stringify(body, null, 2))
+    await editor.fill(
+      typeof body === 'string' ? body : JSON.stringify(body, null, 2),
+    )
   }
+
+  const actualPath = endpoint.replace(/\{([^}]+)\}/g, (_match, key: string) => {
+    if (!(key in pathParams))
+      throw new Error(`Missing Swagger path param: ${key}`)
+    return encodeURIComponent(String(pathParams[key]))
+  })
   const responseWait = page.waitForResponse((response) => {
     try {
       const url = new URL(response.url())
       return (
         response.request().method() === method &&
-        url.pathname === endpoint &&
-        url.host === new URL(page.url()).host
+        decodeURIComponent(url.pathname) === decodeURIComponent(actualPath) &&
+        url.host === new URL(page.url()).host &&
+        Object.entries(queryParams).every(
+          ([name, value]) => url.searchParams.get(name) === String(value),
+        )
       )
     } catch {
       return false
@@ -48,23 +82,23 @@ export async function swaggerExecute(
   })
   await operation.getByRole('button', { name: 'Execute', exact: true }).click()
   const result = await responseWait
-  expect(result.status(), `${method} ${endpoint}`).toBe(expectedStatus)
-
+  expect(result.status(), `${method} ${actualPath}`).toBe(expectedStatus)
   const live = operation.locator('.live-responses-table')
   await expect(live).toBeVisible()
   await expect(
     live.locator('tbody tr .response-col_status').first(),
   ).toContainText(String(expectedStatus))
-  // Keep executed response on screen for human observation.
-  await page.waitForTimeout(1200)
-  console.log(`Swagger UI Execute: ${method} ${endpoint} -> ${expectedStatus}`)
+  console.log(
+    `Swagger UI Execute: ${method} ${actualPath} -> ${expectedStatus}`,
+  )
   return result
 }
 
 export async function openSwagger(page: Page): Promise<void> {
   const response = await page.goto('/docs', { waitUntil: 'domcontentloaded' })
   expect(response?.status()).toBe(200)
-  await expect(page.locator('.swagger-ui .opblock')).toHaveCount(8)
+  // Future API milestones may add operations; never hardcode Phase 02's 8.
+  await expect(page.locator('.swagger-ui .opblock').first()).toBeVisible()
 }
 
 export async function authorizeInSwagger(
