@@ -9,6 +9,7 @@ import { JwtService } from '@nestjs/jwt'
 import { DatabaseService } from '../database/database.service'
 import { Environment } from '../config/environment'
 import { AuthenticatedRequest } from './auth.types'
+import { PermissionsService } from './permissions.service'
 
 @Injectable()
 export class AccessGuard implements CanActivate {
@@ -16,6 +17,7 @@ export class AccessGuard implements CanActivate {
     private readonly jwt: JwtService,
     private readonly database: DatabaseService,
     private readonly config: ConfigService<Environment, true>,
+    private readonly permissions: PermissionsService,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -43,7 +45,13 @@ export class AccessGuard implements CanActivate {
     })
     if (!user || user.status !== 'ACTIVE')
       throw new UnauthorizedException('Account disabled or missing')
-    req.authUser = { id: user.id, email: user.email, role: user.role }
+    const resolved = await this.permissions.resolve(user)
+    req.authUser = {
+      id: user.id,
+      email: user.email,
+      role: user.role,
+      ...resolved,
+    }
     return true
   }
 }

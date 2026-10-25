@@ -80,6 +80,10 @@ export async function createHttpApp(): Promise<INestApplication> {
         'Inventory / Admin',
         'SKU stock ledger, adjustments and thresholds',
       )
+      .addTag(
+        'Workspace / Admin',
+        'JWT-only staff workspace roles and persistent permission grants',
+      )
       .build()
     const document = SwaggerModule.createDocument(app, docConfig)
     SwaggerModule.setup('docs', app, document, {

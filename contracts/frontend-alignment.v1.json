@@ -1,0 +1,128 @@
+{
+  "version": "1.1.0",
+  "purpose": "Source-backed pre-integration contract baseline, NOT proof of runtime integration",
+  "sourceBaselines": {
+    "backend": "kookaburra-backend-full-20261025-220353.zip + A1 persistent role/permission alignment",
+    "admin": "kookaburra-admin-full-20261025-181323.zip",
+    "storefront": "kookaburra-storefront-full-20261020-101939.zip"
+  },
+  "apiPrefix": "/v1",
+  "canonicalRules": {
+    "ids": "Backend UUIDs are canonical; demo IDs are not import IDs",
+    "money": "Integer minor units and ISO 4217 currency; UI USD decimal display is a presentation adapter only",
+    "inventory": "Stock changed only through Inventory API after item creation; product/variant stockOnHand are mirrors",
+    "availability": "Display hint only, authoritative stock validated by checkout backend",
+    "auth": "Bearer JWT-only; frontend must send Authorization header and manage token lifecycle; no cookie session/BFF is mandated.",
+    "status": "Explicit map ACTIVE/DRAFT/ARCHIVED; never silently map ARCHIVED to Draft",
+    "media": "Store references by stable provider-tracked IDs; attachments, alt text, and cleanup in Phase 03C",
+    "pagination": "Existing {items,total,page,limit,pages} needs a frontend adapter to ApiPage.pageSize or additive backend alias",
+    "apiStability": "Keep /v1 and legacy endpoints stable; add new documented DTOs without breaking already-tested clients"
+  },
+  "findings": [
+    {
+      "id": "prefix",
+      "priority": "P0",
+      "status": "MATCH",
+      "summary": "Storefront transport and backend use /v1",
+      "action": "Preserve /v1; do not prepend /api again"
+    },
+    {
+      "id": "public-catalog",
+      "priority": "P0",
+      "status": "MATCH",
+      "summary": "Read-only public product/category routes exist",
+      "action": "Keep storefront catalog projection separate from admin persistence DTO"
+    },
+    {
+      "id": "catalog-pricing",
+      "priority": "P0",
+      "status": "ADAPTER",
+      "summary": "Backend priceMinor vs admin price decimal vs storefront ApiMoney object",
+      "action": "Use lossless minor-unit mapping; variant override must be represented; server is authoritative"
+    },
+    {
+      "id": "catalog-identity",
+      "priority": "P0",
+      "status": "ADAPTER",
+      "summary": "Canonical backend UUID differs from demo product/variant IDs",
+      "action": "Resolve explicit mappings; never guess or silently migrate fixtures"
+    },
+    {
+      "id": "variant-shape",
+      "priority": "P1",
+      "status": "MATCH",
+      "summary": "Size-only, color-only and combined options share a compatible concept",
+      "action": "Map options object and variant-level price/availability carefully"
+    },
+    {
+      "id": "category-shape",
+      "priority": "P1",
+      "status": "ADAPTER",
+      "summary": "Admin uses a single categoryId, backend accepts multiple categoryIds; storefront draft uses parentId",
+      "action": "Use explicit primary category for existing Admin view while retaining backend multiple categories"
+    },
+    {
+      "id": "inventory-identity",
+      "priority": "P0",
+      "status": "ADAPTER",
+      "summary": "Admin stock adjustment uses productId/variantId; backend uses inventory balance UUID and requestId",
+      "action": "Create stock-adjustment adapter with lookup and UUID idempotency; use server lowStockThreshold"
+    },
+    {
+      "id": "catalog-stock-guard",
+      "priority": "P0",
+      "status": "MATCH",
+      "summary": "Catalog update DTOs prevent direct stock editing after creation",
+      "action": "Keep all later adjustments in the inventory ledger"
+    },
+    {
+      "id": "session-transport",
+      "priority": "P0",
+      "status": "ADAPTER",
+      "summary": "JWT-only decided: Storefront transport currently sends credentials:include without Authorization bearer",
+      "action": "Adapt frontend API transport to send Bearer JWT and handle refresh securely; no backend cookie session or BFF"
+    },
+    {
+      "id": "staff-permissions",
+      "priority": "P0",
+      "status": "ADAPTER",
+      "summary": "Five Admin role keys and persistent permission grants implemented server-side; browser preview still requires API adapter",
+      "action": "Integrate Admin staff/role UI with /v1/admin/staff and /v1/admin/roles; treat backend policy as authoritative"
+    },
+    {
+      "id": "product-media",
+      "priority": "P1",
+      "status": "PLANNED",
+      "summary": "Product images/galleries are required by both UIs but backend media model/API not yet implemented",
+      "action": "Lock media attachment, alt text, sort order and delete lifecycle in Phase 03C"
+    },
+    {
+      "id": "commerce-future",
+      "priority": "P2",
+      "status": "PLANNED",
+      "summary": "Cart/checkout/order quote contracts are drafts; backend commerce endpoints do not exist yet",
+      "action": "Derive shipping, taxes, coupons, quotes, orders and payment state from both UIs before Phases 04/05"
+    },
+    {
+      "id": "status-shape",
+      "priority": "P0",
+      "status": "ADAPTER",
+      "summary": "Admin Active/Draft cannot represent backend ARCHIVED status",
+      "action": "Define archive visibility and prevent lossy conversion in Admin mapping"
+    },
+    {
+      "id": "page-shape",
+      "priority": "P1",
+      "status": "ADAPTER",
+      "summary": "Backend returns limit/pages; Storefront ApiPage declares pageSize",
+      "action": "Map limit -> pageSize and retain total/page; assert in contract tests"
+    },
+    {
+      "id": "fixture-protection",
+      "priority": "P0",
+      "status": "MATCH",
+      "summary": "Both UIs already warn that fixture identities are not authoritative",
+      "action": "Do not map demos by product names, prices or slugs without reviewed import data"
+    }
+  ]
+}

@@ -38,6 +38,21 @@ test('Watch Swagger execute health and protected endpoints safely', async ({
   await test.step('Admin Inventory read without token: 401', async () => {
     await swaggerExecute(page, 'GET', '/v1/admin/inventory', 401)
   })
+  await test.step('Inventory lowStock dropdown accepts true and false without DB writes', async () => {
+    // Both enum values are selected via Swagger's real HTML <select>.
+    // The HTTP 401 is expected because this smoke suite has no credentials.
+    for (const lowStock of ['true', 'false']) {
+      await swaggerExecute(
+        page,
+        'GET',
+        '/v1/admin/inventory',
+        401,
+        undefined,
+        {},
+        { lowStock },
+      )
+    }
+  })
   await test.step('Admin Inventory write without token: 401', async () => {
     await swaggerExecute(
       page,
@@ -51,6 +66,17 @@ test('Watch Swagger execute health and protected endpoints safely', async ({
       },
       { id: '72e41677-07cc-4e31-b3cb-207d7e2687ca' },
     )
+  })
+  await test.step('Workspace roles without JWT: 401', async () => {
+    await swaggerExecute(page, 'GET', '/v1/admin/roles', 401)
+  })
+  await test.step('Workspace staff create without JWT: 401', async () => {
+    await swaggerExecute(page, 'POST', '/v1/admin/staff', 401, {
+      name: 'Blocked',
+      email: 'blocked@example.test',
+      password: 'InvalidNoAuth123!',
+      role: 'ANALYST',
+    })
   })
   await test.step('Invalid customer registration is rejected before database: 400', async () => {
     await swaggerExecute(page, 'POST', '/v1/auth/register', 400, {

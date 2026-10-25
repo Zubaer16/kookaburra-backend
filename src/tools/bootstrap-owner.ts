@@ -34,6 +34,7 @@ async function main(): Promise<void> {
         email,
         passwordHash: await hashPassword(password),
         role: 'OWNER',
+        staffRoleAssignment: { create: { roleKey: 'OWNER' } },
       },
     })
     process.stdout.write(

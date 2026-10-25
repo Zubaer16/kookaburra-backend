@@ -14,7 +14,7 @@ import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger'
 import { AccessGuard } from '../auth/access.guard'
 import { AdminGuard } from '../auth/admin.guard'
 import { AuthenticatedRequest } from '../auth/auth.types'
-import { CatalogWriteGuard } from '../catalog/catalog.write.guard'
+import { InventoryWriteGuard } from './inventory.write.guard'
 import {
   AdjustInventoryDto,
   InventoryQueryDto,
@@ -52,8 +52,10 @@ export class InventoryController {
   }
 
   @Patch(':id/threshold')
-  @UseGuards(CatalogWriteGuard)
-  @ApiOperation({ summary: 'Set low-stock threshold; OWNER/ADMIN only' })
+  @UseGuards(InventoryWriteGuard)
+  @ApiOperation({
+    summary: 'Set low-stock threshold; inventory.adjust permission',
+  })
   threshold(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() input: SetLowStockThresholdDto,
@@ -63,9 +65,9 @@ export class InventoryController {
   }
 
   @Post(':id/adjustments')
-  @UseGuards(CatalogWriteGuard)
+  @UseGuards(InventoryWriteGuard)
   @ApiOperation({
-    summary: 'Atomic, idempotent stock adjustment; OWNER/ADMIN only',
+    summary: 'Atomic, idempotent stock adjustment; inventory.adjust permission',
   })
   adjust(
     @Param('id', ParseUUIDPipe) id: string,

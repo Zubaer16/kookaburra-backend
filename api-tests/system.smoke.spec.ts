@@ -28,6 +28,7 @@ test.describe('System & OpenAPI', () => {
       'Catalog / Storefront',
       'Catalog / Admin',
       'Inventory / Admin',
+      'Workspace / Admin',
     ])
     for (const endpoint of [
       '/v1/health',
@@ -48,6 +49,10 @@ test.describe('System & OpenAPI', () => {
       '/v1/admin/inventory/{id}/movements',
       '/v1/admin/inventory/{id}/threshold',
       '/v1/admin/inventory/{id}/adjustments',
+      '/v1/admin/roles',
+      '/v1/admin/roles/{key}/permissions',
+      '/v1/admin/staff',
+      '/v1/admin/staff/{id}',
     ]) {
       expect(doc.paths, `Missing OpenAPI path ${endpoint}`).toHaveProperty(
         endpoint,

@@ -48,7 +48,14 @@ export async function swaggerExecute(
         .locator('input:not([type="checkbox"]), textarea, select')
         .first()
       await expect(input).toBeVisible()
-      await input.fill(String(value))
+      // Swagger renders enum query parameters (for example, lowStock) as
+      // <select> elements. Playwright's fill() only supports text controls.
+      // Use the actual dropdown options rather than bypassing Swagger UI.
+      if (await input.evaluate((element) => element.tagName === 'SELECT')) {
+        await input.selectOption(String(value))
+      } else {
+        await input.fill(String(value))
+      }
     }
   }
 

@@ -36,6 +36,7 @@ describe('Phase 03B API smoke tests (no real database)', () => {
       'Catalog / Storefront',
       'Catalog / Admin',
       'Inventory / Admin',
+      'Workspace / Admin',
     ])
   })
   it('publishes Phase 03A catalog routes without requiring a database', async () => {
@@ -132,5 +133,50 @@ describe('Phase 03B API smoke tests (no real database)', () => {
       .post('/v1/auth/register')
       .send({ email: 'invalid', password: 'short' })
       .expect(400)
+  })
+})
+
+// A1 routes must be both documented and guarded before any DB query.
+describe('A1 workspace guards and OpenAPI smoke', () => {
+  let app: INestApplication
+  beforeAll(async () => {
+    app = await createHttpApp()
+    await app.init()
+  })
+  afterAll(async () => {
+    await app?.close()
+  })
+  it('documents five role/staff methods with Bearer JWT', async () => {
+    const doc = (
+      await request(app.getHttpServer()).get('/docs-json').expect(200)
+    ).body
+    const endpoints = [
+      ['get', '/v1/admin/roles'],
+      ['patch', '/v1/admin/roles/{key}/permissions'],
+      ['get', '/v1/admin/staff'],
+      ['post', '/v1/admin/staff'],
+      ['patch', '/v1/admin/staff/{id}'],
+    ] as const
+    for (const [method, path] of endpoints) {
+      const operation = doc.paths?.[path]?.[method]
+      expect(operation).toBeDefined()
+      expect(operation.security).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ 'access-token': [] }),
+        ]),
+      )
+    }
+  })
+  it('rejects unauthorized workspace requests without touching database', async () => {
+    await request(app.getHttpServer()).get('/v1/admin/roles').expect(401)
+    await request(app.getHttpServer()).get('/v1/admin/staff').expect(401)
+    await request(app.getHttpServer())
+      .post('/v1/admin/staff')
+      .send({})
+      .expect(401)
+    await request(app.getHttpServer())
+      .patch('/v1/admin/roles/SUPPORT/permissions')
+      .send({ permissions: [] })
+      .expect(401)
   })
 })

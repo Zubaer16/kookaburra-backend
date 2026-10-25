@@ -1,4 +1,4 @@
-import { ApiProperty } from '@nestjs/swagger'
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger'
 import { IsEmail, IsString, MaxLength, MinLength } from 'class-validator'
 
 export class CredentialsDto {
@@ -32,6 +32,17 @@ export class SafeUserDto {
   @ApiProperty() id!: string
   @ApiProperty() email!: string
   @ApiProperty() role!: string
+  @ApiPropertyOptional({
+    description:
+      'Resolved persisted Admin workspace role, e.g. CATALOG_EDITOR. Null for customers.',
+  })
+  staffRole?: string | null
+  @ApiPropertyOptional({
+    type: [String],
+    description:
+      'Effective permissions from DB; do not trust browser local previews.',
+  })
+  permissions?: string[]
 }
 export class TokenPairDto {
   @ApiProperty() accessToken!: string

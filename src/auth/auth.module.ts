@@ -5,11 +5,24 @@ import { AccessGuard } from './access.guard'
 import { AdminGuard } from './admin.guard'
 import { AdminAuthController } from './admin-auth.controller'
 import { CustomerAuthController } from './customer-auth.controller'
+import { PermissionsService } from './permissions.service'
+import { WorkspaceController } from './workspace.controller'
+import { WorkspaceService } from './workspace.service'
 
 @Module({
   imports: [JwtModule.register({})],
-  controllers: [CustomerAuthController, AdminAuthController],
-  providers: [AuthService, AccessGuard, AdminGuard],
-  exports: [JwtModule, AccessGuard, AdminGuard],
+  controllers: [
+    CustomerAuthController,
+    AdminAuthController,
+    WorkspaceController,
+  ],
+  providers: [
+    AuthService,
+    AccessGuard,
+    AdminGuard,
+    PermissionsService,
+    WorkspaceService,
+  ],
+  exports: [JwtModule, AccessGuard, AdminGuard, PermissionsService],
 })
 export class AuthModule {}

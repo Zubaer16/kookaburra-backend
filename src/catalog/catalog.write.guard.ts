@@ -6,14 +6,17 @@ import {
 } from '@nestjs/common'
 import { AuthenticatedRequest } from '../auth/auth.types'
 
-/** Temporary coarse policy: STAFF can inspect catalog; only OWNER/ADMIN can mutate it.
- * Phase 02 does not yet have a persisted per-permission RBAC matrix. */
+/** Server-resolved per-request permissions, never the JWT role claim alone. */
 @Injectable()
 export class CatalogWriteGuard implements CanActivate {
   canActivate(context: ExecutionContext): boolean {
-    const role = context.switchToHttp().getRequest<AuthenticatedRequest>()
-      .authUser?.role
-    if (role !== 'OWNER' && role !== 'ADMIN') {
+    const actor = context
+      .switchToHttp()
+      .getRequest<AuthenticatedRequest>().authUser
+    if (
+      actor?.role !== 'OWNER' &&
+      !actor?.permissions?.includes('catalog.manage')
+    ) {
       throw new ForbiddenException('Catalog write permission required')
     }
     return true

@@ -38,6 +38,7 @@ enum OutboxStatus {
 model User {
   id           String        @id @default(uuid()) @db.Uuid
   email        String        @unique @db.VarChar(320)
+  displayName  String        @default("") @map("display_name") @db.VarChar(120)
   passwordHash String        @map("password_hash") @db.Text
   role         UserRole      @default(CUSTOMER)
   status       UserStatus    @default(ACTIVE)
@@ -45,6 +46,7 @@ model User {
   updatedAt    DateTime      @updatedAt @map("updated_at")
   sessions     AuthSession[]
   auditEvents  AuditEvent[]
+  staffRoleAssignment StaffRoleAssignment?
 
   @@map("users")
 }
@@ -214,4 +216,33 @@ model IdempotencyRecord {
   @@unique([scope, key])
   @@index([expiresAt])
   @@map("idempotency_records")
+}
+
+// A1: one persisted Admin workspace role per staff member, five seeded roles.
+// Role -> permission decisions are always made server-side, never from JWT claims.
+model StaffRole {
+  key         String                @id @db.VarChar(40)
+  displayName String                @map("display_name") @db.VarChar(80)
+  permissions StaffRolePermission[]
+  assignments StaffRoleAssignment[]
+
+  @@map("staff_roles")
+}
+model StaffRolePermission {
+  roleKey       String    @map("role_key") @db.VarChar(40)
+  permissionKey String    @map("permission_key") @db.VarChar(80)
+  role          StaffRole @relation(fields: [roleKey], references: [key], onDelete: Restrict)
+
+  @@id([roleKey, permissionKey])
+  @@map("staff_role_permissions")
+}
+model StaffRoleAssignment {
+  userId     String    @id @map("user_id") @db.Uuid
+  roleKey    String    @map("role_key") @db.VarChar(40)
+  assignedAt DateTime  @default(now()) @map("assigned_at")
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role       StaffRole @relation(fields: [roleKey], references: [key], onDelete: Restrict)
+
+  @@index([roleKey])
+  @@map("staff_role_assignments")
 }
