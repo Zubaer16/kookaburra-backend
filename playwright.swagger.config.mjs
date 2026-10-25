@@ -1,17 +1,10 @@
 import { defineConfig } from '@playwright/test'
 
 // Runners validate the target database before launching the browser.
-// Smoke/isolated modes use 4101; opt-in local dev inspection uses 4102.
+// All browser test modes use port 4101; the development DB is never a test target.
 const port = Number(process.env.API_TEST_PORT)
 const mode = process.env.API_TEST_MODE
-if (
-  !(port === 4101 && ['smoke', 'db'].includes(mode)) &&
-  !(
-    port === 4102 &&
-    mode === 'dev-inspect' &&
-    process.env.API_DEV_INSPECT_APPROVED === 'YES'
-  )
-) {
+if (!(port === 4101 && ['smoke', 'db'].includes(mode))) {
   throw new Error('Use the guarded npm run test:api:visual:* scripts')
 }
 
@@ -20,7 +13,6 @@ export default defineConfig({
   projects: [
     { name: 'visual-smoke', testMatch: /\.smoke\.spec\.ts$/ },
     { name: 'visual-db', testMatch: /\.db\.spec\.ts$/ },
-    { name: 'visual-dev', testMatch: /\.inspect\.spec\.ts$/ },
   ],
   fullyParallel: false,
   workers: 1,

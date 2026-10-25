@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto'
 import {
   BadRequestException,
   ConflictException,
@@ -265,6 +266,42 @@ export class CatalogService {
           },
           include: productIncludes,
         })
+        const simpleBalance = await tx.inventoryBalance.create({
+          data: { productId: product.id, onHand: product.stockOnHand },
+        })
+        if (product.stockOnHand > 0) {
+          await tx.inventoryMovement.create({
+            data: {
+              balanceId: simpleBalance.id,
+              requestId: randomUUID(),
+              reason: 'OPENING',
+              delta: product.stockOnHand,
+              before: 0,
+              after: product.stockOnHand,
+              actorId,
+              note: 'Initial stock on product creation',
+            },
+          })
+        }
+        for (const variant of product.variants) {
+          const balance = await tx.inventoryBalance.create({
+            data: { variantId: variant.id, onHand: variant.stockOnHand },
+          })
+          if (variant.stockOnHand > 0) {
+            await tx.inventoryMovement.create({
+              data: {
+                balanceId: balance.id,
+                requestId: randomUUID(),
+                reason: 'OPENING',
+                delta: variant.stockOnHand,
+                before: 0,
+                after: variant.stockOnHand,
+                actorId,
+                note: 'Initial stock on variant creation',
+              },
+            })
+          }
+        }
         await this.audit(tx, actorId, 'product.created', 'product', product.id)
         return product
       })
@@ -274,11 +311,6 @@ export class CatalogService {
   }
 
   async updateProduct(id: string, input: UpdateProductDto, actorId: string) {
-    if (input.variants !== undefined) {
-      throw new BadRequestException(
-        'Modify variants through dedicated variant endpoints',
-      )
-    }
     try {
       return await this.database.client.$transaction(async (tx) => {
         const previous = await tx.product.findUnique({ where: { id } })
@@ -287,11 +319,6 @@ export class CatalogService {
           await this.ensureCategories(tx, input.categoryIds)
         if (input.sku !== undefined)
           await this.ensureSkuUnique(tx, normalizedSku(input.sku), id)
-        if (input.stockOnHand !== undefined && previous.hasVariants) {
-          throw new BadRequestException(
-            'Use variant stock endpoint; product has variants',
-          )
-        }
         this.checkCompareAt(
           input.priceMinor ?? previous.priceMinor,
           input.compareAtMinor === undefined
@@ -329,9 +356,6 @@ export class CatalogService {
               : {}),
             ...(input.compareAtMinor !== undefined
               ? { compareAtMinor: input.compareAtMinor }
-              : {}),
-            ...(input.stockOnHand !== undefined
-              ? { stockOnHand: input.stockOnHand }
               : {}),
           },
           include: productIncludes,
@@ -387,6 +411,23 @@ export class CatalogService {
             stockOnHand: input.stockOnHand ?? 0,
           },
         })
+        const balance = await tx.inventoryBalance.create({
+          data: { variantId: variant.id, onHand: variant.stockOnHand },
+        })
+        if (variant.stockOnHand > 0) {
+          await tx.inventoryMovement.create({
+            data: {
+              balanceId: balance.id,
+              requestId: randomUUID(),
+              reason: 'OPENING',
+              delta: variant.stockOnHand,
+              before: 0,
+              after: variant.stockOnHand,
+              actorId,
+              note: 'Initial stock on variant creation',
+            },
+          })
+        }
         await tx.product.update({
           where: { id: productId },
           data: { hasVariants: true, stockOnHand: 0 },
@@ -433,9 +474,6 @@ export class CatalogService {
             ...(input.priceMinor !== undefined
               ? { priceMinor: input.priceMinor }
               : {}),
-            ...(input.stockOnHand !== undefined
-              ? { stockOnHand: input.stockOnHand }
-              : {}),
           },
         })
         await this.audit(tx, actorId, 'variant.updated', 'variant', variantId)
@@ -457,6 +495,14 @@ export class CatalogService {
         if (product.status !== 'DRAFT' || variant.stockOnHand !== 0) {
           throw new ConflictException(
             'Only a zero-stock variant on a DRAFT product may be deleted',
+          )
+        }
+        const movements = await tx.inventoryMovement.count({
+          where: { balance: { variantId } },
+        })
+        if (movements) {
+          throw new ConflictException(
+            'Variant has inventory history; archive product instead',
           )
         }
         // Phase 04 will require archive/retention once orders can reference variants.

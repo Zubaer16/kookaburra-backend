@@ -17,7 +17,12 @@ import {
   MinLength,
   ValidateNested,
 } from 'class-validator'
-import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger'
+import {
+  ApiProperty,
+  ApiPropertyOptional,
+  OmitType,
+  PartialType,
+} from '@nestjs/swagger'
 
 const MONEY_MAX = 2_147_483_647
 
@@ -83,7 +88,9 @@ export class CreateVariantDto {
   @Max(MONEY_MAX)
   stockOnHand?: number
 }
-export class UpdateVariantDto extends PartialType(CreateVariantDto) {}
+export class UpdateVariantDto extends PartialType(
+  OmitType(CreateVariantDto, ['stockOnHand'] as const),
+) {}
 
 export enum CatalogProductStatus {
   DRAFT = 'DRAFT',
@@ -153,7 +160,9 @@ export class CreateProductDto {
   variants?: CreateVariantDto[]
 }
 /** Variant changes are separate endpoints to avoid replacing existing variants by accident. */
-export class UpdateProductDto extends PartialType(CreateProductDto) {}
+export class UpdateProductDto extends PartialType(
+  OmitType(CreateProductDto, ['stockOnHand', 'variants'] as const),
+) {}
 export class ProductQueryDto {
   @ApiPropertyOptional()
   @IsOptional()

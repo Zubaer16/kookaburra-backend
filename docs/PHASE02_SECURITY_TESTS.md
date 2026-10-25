@@ -4,7 +4,7 @@
 
 Add **independent, readable** Playwright test cases beyond the existing 16-step visible Swagger walkthrough. Test **real NestJS HTTP requests against real PostgreSQL**, including invalid credentials, token signature and expiry, disabled accounts, refresh replay and session persistence. It **does not** implement missing authentication security controls.
 
-The existing `npm run test:api:visual:dev` keeps its current functionality and writes uniquely named inspection users to `kookaburra-api-dev`. **Do not use that development inspection mode for security mutation tests.**
+The former development-database visual inspection mode has been retired. All automated Swagger and security suites now target the isolated local `kookaburra_api_test` database; use `docs/VISUAL_DEV_REMOVAL.md` for safe cleanup of old inspection accounts.
 
 ## Commands (Windows PowerShell)
 
@@ -19,8 +19,8 @@ npm run test:api:security
 npm run test:api:db
 npm run test:api:report
 
-# Separate headed Swagger browser demo (writes to dev DB on explicit opt-in):
-npm run test:api:visual:dev
+# Headed Swagger browser tests (isolated test DB only):
+npm run test:api:visual:all
 ```
 
 `test:api:security` launches the API on **port 4101**, creates fresh uniquely marked accounts in **kookaburra_api_test**, then deletes only those accounts and their linked audit events. It has a strict DB preflight identical to the existing isolated integration suite. Do not put `.env`, `.env.api-test`, JWT values, test passwords or HTML traces in a public repository.
@@ -55,7 +55,7 @@ npm run test:api:visual:dev
 - Extra role field in login payload is forbidden.
 - Refresh and logout reject bad token types and unknown body fields.
 
-**Important limitations (not implemented or verified by this patch):** distributed rate limiting/brute-force mitigation, email verification, password reset, cookie/CSRF policy, account lockout, concurrent refresh-race stress, full permission-granular RBAC, secret rotation, DB outage fault injection, infrastructure-level security controls and any production payment flows. These are *release gates*, not passed tests. The use of an isolated test database is intentional: tampering with session expiry, account roles and disabling accounts should not affect demo/development records.
+**Important limitations (not implemented or verified by this patch):** distributed rate limiting/brute-force mitigation, email verification, password reset, cookie/CSRF policy, account lockout, concurrent refresh-race stress, full permission-granular RBAC, secret rotation, DB outage fault injection, infrastructure-level security controls and any production payment flows. These are _release gates_, not passed tests. The use of an isolated test database is intentional: tampering with session expiry, account roles and disabling accounts should not affect demo/development records.
 
 ## Verification
 

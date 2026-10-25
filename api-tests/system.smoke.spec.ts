@@ -27,6 +27,7 @@ test.describe('System & OpenAPI', () => {
       'Authentication / Admin',
       'Catalog / Storefront',
       'Catalog / Admin',
+      'Inventory / Admin',
     ])
     for (const endpoint of [
       '/v1/health',
@@ -42,6 +43,11 @@ test.describe('System & OpenAPI', () => {
       '/v1/products/{slug}',
       '/v1/admin/categories',
       '/v1/admin/products',
+      '/v1/admin/inventory',
+      '/v1/admin/inventory/{id}',
+      '/v1/admin/inventory/{id}/movements',
+      '/v1/admin/inventory/{id}/threshold',
+      '/v1/admin/inventory/{id}/adjustments',
     ]) {
       expect(doc.paths, `Missing OpenAPI path ${endpoint}`).toHaveProperty(
         endpoint,
@@ -64,6 +70,37 @@ test.describe('System & OpenAPI', () => {
       data: { name: 'Test', slug: 'test' },
     })
     expect(write.status()).toBe(401)
+  })
+
+  test('admin Inventory routes reject missing bearer tokens', async ({
+    request,
+  }) => {
+    const id = '72e41677-07cc-4e31-b3cb-207d7e2687ca'
+    for (const endpoint of [
+      '/v1/admin/inventory',
+      `/v1/admin/inventory/${id}`,
+      `/v1/admin/inventory/${id}/movements`,
+    ]) {
+      expect((await request.get(endpoint)).status()).toBe(401)
+    }
+    expect(
+      (
+        await request.patch(`/v1/admin/inventory/${id}/threshold`, {
+          data: { lowStockThreshold: 5 },
+        })
+      ).status(),
+    ).toBe(401)
+    expect(
+      (
+        await request.post(`/v1/admin/inventory/${id}/adjustments`, {
+          data: {
+            requestId: 'bb7a4b48-794c-4118-9350-ad7701d53e15',
+            delta: 1,
+            reason: 'RECEIPT',
+          },
+        })
+      ).status(),
+    ).toBe(401)
   })
 
   test('trusted localhost origin is allowed', async ({ request }) => {

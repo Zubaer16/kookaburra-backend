@@ -107,6 +107,7 @@ model Product {
   hasVariants    Boolean        @default(false) @map("has_variants")
   stockOnHand    Int            @default(0) @map("stock_on_hand")
   variants       ProductVariant[]
+  inventoryBalance InventoryBalance?
   categories     ProductCategory[]
   createdAt      DateTime       @default(now()) @map("created_at")
   updatedAt      DateTime       @updatedAt @map("updated_at")
@@ -123,6 +124,7 @@ model ProductVariant {
   options     Json     @default("{}")
   priceMinor  Int?     @map("price_minor")
   stockOnHand Int      @default(0) @map("stock_on_hand")
+  inventoryBalance InventoryBalance?
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
 
@@ -138,6 +140,52 @@ model ProductCategory {
 
   @@id([productId, categoryId])
   @@map("product_categories")
+}
+
+enum InventoryReason {
+  OPENING
+  RECEIPT
+  RETURN
+  DAMAGE
+  CORRECTION
+}
+
+// Exactly one of productId/variantId is populated (also checked by SQL).
+// The existing Catalog stockOnHand fields remain backward-compatible mirrors;
+// all post-creation writes must go through the Inventory service.
+model InventoryBalance {
+  id                String             @id @default(uuid()) @db.Uuid
+  productId         String?            @unique @map("product_id") @db.Uuid
+  variantId         String?            @unique @map("variant_id") @db.Uuid
+  product           Product?           @relation(fields: [productId], references: [id], onDelete: Cascade)
+  variant           ProductVariant?    @relation(fields: [variantId], references: [id], onDelete: Cascade)
+  onHand            Int                @default(0) @map("on_hand")
+  lowStockThreshold Int                @default(5) @map("low_stock_threshold")
+  movements         InventoryMovement[]
+  createdAt         DateTime           @default(now()) @map("created_at")
+  updatedAt         DateTime           @updatedAt @map("updated_at")
+
+  @@map("inventory_balances")
+}
+
+// Append-only through the HTTP API. requestId is unique per inventory item
+// to make retries safe even if the HTTP caller loses the first response.
+model InventoryMovement {
+  id         String          @id @default(uuid()) @db.Uuid
+  balanceId  String          @map("balance_id") @db.Uuid
+  balance    InventoryBalance @relation(fields: [balanceId], references: [id], onDelete: Cascade)
+  requestId  String          @map("request_id") @db.Uuid
+  reason     InventoryReason
+  delta      Int
+  before     Int
+  after      Int
+  note       String          @default("") @db.VarChar(500)
+  actorId    String?         @map("actor_id") @db.Uuid
+  createdAt  DateTime        @default(now()) @map("created_at")
+
+  @@unique([balanceId, requestId])
+  @@index([balanceId, createdAt])
+  @@map("inventory_movements")
 }
 
 model OutboxEvent {

@@ -4,6 +4,8 @@ import {
   CreateCategoryDto,
   CreateProductDto,
   CreateVariantDto,
+  UpdateProductDto,
+  UpdateVariantDto,
 } from './catalog.dto'
 
 const product = () => ({
@@ -33,6 +35,31 @@ describe('Catalog DTO validation', () => {
     const errors = await validate(value)
     expect(errors.some((error) => error.property === 'priceMinor')).toBe(true)
     expect(errors.some((error) => error.property === 'categoryIds')).toBe(true)
+  })
+
+  it('rejects direct stock edits and variant replacement on product update', async () => {
+    const value = plainToInstance(UpdateProductDto, {
+      stockOnHand: 200,
+      variants: [],
+    })
+    const errors = await validate(value, {
+      whitelist: true,
+      forbidNonWhitelisted: true,
+    })
+    expect(errors.map((error) => error.property)).toEqual(
+      expect.arrayContaining(['stockOnHand', 'variants']),
+    )
+  })
+
+  it('rejects direct stock edits on variant update', async () => {
+    const value = plainToInstance(UpdateVariantDto, {
+      stockOnHand: 200,
+    })
+    const errors = await validate(value, {
+      whitelist: true,
+      forbidNonWhitelisted: true,
+    })
+    expect(errors.map((error) => error.property)).toContain('stockOnHand')
   })
 
   it('rejects invalid nested variant stock', async () => {

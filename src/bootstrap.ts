@@ -76,6 +76,10 @@ export async function createHttpApp(): Promise<INestApplication> {
         'Catalog / Admin',
         'Protected category, product and variant management',
       )
+      .addTag(
+        'Inventory / Admin',
+        'SKU stock ledger, adjustments and thresholds',
+      )
       .build()
     const document = SwaggerModule.createDocument(app, docConfig)
     SwaggerModule.setup('docs', app, document, {

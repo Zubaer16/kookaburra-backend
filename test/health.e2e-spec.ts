@@ -2,7 +2,7 @@ import { INestApplication } from '@nestjs/common'
 import request from 'supertest'
 import { createHttpApp } from '../src/bootstrap'
 
-describe('Phase 03A API smoke tests (no real database)', () => {
+describe('Phase 03B API smoke tests (no real database)', () => {
   let app: INestApplication
   beforeAll(async () => {
     app = await createHttpApp()
@@ -35,6 +35,7 @@ describe('Phase 03A API smoke tests (no real database)', () => {
       'Authentication / Admin',
       'Catalog / Storefront',
       'Catalog / Admin',
+      'Inventory / Admin',
     ])
   })
   it('publishes Phase 03A catalog routes without requiring a database', async () => {
@@ -50,6 +51,52 @@ describe('Phase 03A API smoke tests (no real database)', () => {
     ]) {
       expect(response.body.paths).toHaveProperty(path)
     }
+  })
+
+  it('publishes all Phase 03B Inventory routes in OpenAPI without a database', async () => {
+    const response = await request(app.getHttpServer())
+      .get('/docs-json')
+      .expect(200)
+    const endpoints = [
+      ['get', '/v1/admin/inventory'],
+      ['get', '/v1/admin/inventory/{id}'],
+      ['get', '/v1/admin/inventory/{id}/movements'],
+      ['patch', '/v1/admin/inventory/{id}/threshold'],
+      ['post', '/v1/admin/inventory/{id}/adjustments'],
+    ] as const
+    for (const [method, path] of endpoints) {
+      const operation = response.body.paths?.[path]?.[method]
+      expect(operation).toBeDefined()
+      expect(operation.tags).toContain('Inventory / Admin')
+      expect(operation.security).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ 'access-token': [] }),
+        ]),
+      )
+    }
+  })
+
+  it('rejects unauthenticated Inventory access before querying a database', async () => {
+    const inventoryId = '72e41677-07cc-4e31-b3cb-207d7e2687ca'
+    await request(app.getHttpServer()).get('/v1/admin/inventory').expect(401)
+    await request(app.getHttpServer())
+      .get(`/v1/admin/inventory/${inventoryId}`)
+      .expect(401)
+    await request(app.getHttpServer())
+      .get(`/v1/admin/inventory/${inventoryId}/movements`)
+      .expect(401)
+    await request(app.getHttpServer())
+      .patch(`/v1/admin/inventory/${inventoryId}/threshold`)
+      .send({ lowStockThreshold: 5 })
+      .expect(401)
+    await request(app.getHttpServer())
+      .post(`/v1/admin/inventory/${inventoryId}/adjustments`)
+      .send({
+        requestId: 'bb7a4b48-794c-4118-9350-ad7701d53e15',
+        delta: 1,
+        reason: 'RECEIPT',
+      })
+      .expect(401)
   })
 
   it('guards admin catalog routes before accessing a database', async () => {

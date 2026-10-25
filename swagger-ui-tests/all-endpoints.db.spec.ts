@@ -34,7 +34,7 @@ function temporaryCredentials() {
   }
 }
 
-// Exercises the 8 Phase 02 auth/health routes via Swagger UI Execute.
+// Exercises all 8 Phase 02 auth/health routes including negative cases via Swagger UI Execute.
 // The 15 Phase 03A Catalog routes live in catalog.db.spec.ts. Only randomly
 // created test accounts are used and deleted afterward.
 test('Watch Swagger Execute the 8 Phase 02 API endpoints', async ({ page }) => {
@@ -48,6 +48,12 @@ test('Watch Swagger Execute the 8 Phase 02 API endpoints', async ({ page }) => {
     await test.step('GET /v1/health -> 200', async () => {
       await swaggerExecute(page, 'GET', '/v1/health', 200)
     })
+    await test.step('Bad customer registration rejected -> 400', async () => {
+      await swaggerExecute(page, 'POST', '/v1/auth/register', 400, {
+        email: 'not-an-email',
+        password: 'short',
+      })
+    })
     await test.step('POST /v1/auth/register -> 201', async () => {
       const response = await swaggerExecute(
         page,
@@ -59,6 +65,30 @@ test('Watch Swagger Execute the 8 Phase 02 API endpoints', async ({ page }) => {
       const data = await response.json()
       customerId = data.user.id as string
       expect(data.user.email).toBe(customer.email)
+    })
+    await test.step('Duplicate registration rejected -> 409; row not duplicated', async () => {
+      const prior = await prisma.user.count({
+        where: { email: customer.email },
+      })
+      expect(prior).toBe(1)
+      await swaggerExecute(page, 'POST', '/v1/auth/register', 409, customer)
+      expect(
+        await prisma.user.count({ where: { email: customer.email } }),
+      ).toBe(1)
+    })
+    await test.step('Incorrect password rejected -> 401', async () => {
+      const before = await prisma.auditEvent.count({
+        where: { actorId: customerId, action: 'customer.login' },
+      })
+      await swaggerExecute(page, 'POST', '/v1/auth/login', 401, {
+        email: customer.email,
+        password: `Wrong-${randomBytes(18).toString('hex')}!`,
+      })
+      expect(
+        await prisma.auditEvent.count({
+          where: { actorId: customerId, action: 'customer.login' },
+        }),
+      ).toBe(before)
     })
     let accessToken = ''
     let refreshToken = ''
@@ -108,6 +138,23 @@ test('Watch Swagger Execute the 8 Phase 02 API endpoints', async ({ page }) => {
         },
       )
       expect((await response.json()).loggedOut).toBe(true)
+    })
+    await test.step('Logged-out refresh is rejected -> 401', async () => {
+      const before = await prisma.authSession.count({
+        where: { userId: customerId },
+      })
+      await swaggerExecute(page, 'POST', '/v1/auth/refresh', 401, {
+        refreshToken,
+      })
+      expect(
+        await prisma.authSession.count({ where: { userId: customerId } }),
+      ).toBe(before)
+    })
+    await test.step('Customer cannot use Admin login -> 401', async () => {
+      await swaggerExecute(page, 'POST', '/v1/admin/auth/login', 401, customer)
+    })
+    await test.step('Customer bearer cannot access Admin profile -> 403', async () => {
+      await swaggerExecute(page, 'GET', '/v1/admin/auth/me', 403)
     })
     await test.step('Prepare temporary STAFF account in isolated DB', async () => {
       const response = await swaggerExecute(

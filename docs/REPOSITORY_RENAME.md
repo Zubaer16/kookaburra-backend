@@ -42,16 +42,16 @@ Expected package name: `kookaburra-backend`. Reinstalling dependencies or runnin
 
 ## Keep these intact
 
-| Setting | Keep |
-| --- | --- |
-| Local dev database | `kookaburra-api-dev` |
-| Isolated local API test database | `kookaburra_api_test` |
-| REST API routes | `/v1/health`, `/v1/auth/...`, `/v1/admin/auth/...` |
-| Browser integration env variable in the storefront | `NEXT_PUBLIC_KOOKABURRA_API_URL` |
-| App server and Swagger ports | Same as before (normally `4000`, visual tests `4101` / `4102`) |
-| Prisma migration history | Unchanged |
+| Setting                                            | Keep                                                  |
+| -------------------------------------------------- | ----------------------------------------------------- |
+| Local dev database                                 | `kookaburra-api-dev`                                  |
+| Isolated local API test database                   | `kookaburra_api_test`                                 |
+| REST API routes                                    | `/v1/health`, `/v1/auth/...`, `/v1/admin/auth/...`    |
+| Browser integration env variable in the storefront | `NEXT_PUBLIC_KOOKABURRA_API_URL`                      |
+| App server and Swagger ports                       | Same as before (normally `4000`, visual tests `4101`) |
+| Prisma migration history                           | Unchanged                                             |
 
-In particular, `scripts/run-api-dev-inspect.cjs` deliberately checks for database `kookaburra-api-dev`; changing that string while leaving the actual PostgreSQL DB untouched will break `npm run test:api:visual:dev`. The `kookaburra_api_test` checks prevent security tests from touching the development database.
+The retired `test:api:visual:dev` mode is no longer supported. All automated visual/security DB tests use strictly guarded `kookaburra_api_test`; see `docs/VISUAL_DEV_REMOVAL.md` for historical test-record cleanup.
 
 ## Check integrations outside the source ZIP
 

@@ -35,6 +35,23 @@ test('Watch Swagger execute health and protected endpoints safely', async ({
       slug: 'blocked-test',
     })
   })
+  await test.step('Admin Inventory read without token: 401', async () => {
+    await swaggerExecute(page, 'GET', '/v1/admin/inventory', 401)
+  })
+  await test.step('Admin Inventory write without token: 401', async () => {
+    await swaggerExecute(
+      page,
+      'POST',
+      '/v1/admin/inventory/{id}/adjustments',
+      401,
+      {
+        requestId: 'bb7a4b48-794c-4118-9350-ad7701d53e15',
+        delta: 1,
+        reason: 'RECEIPT',
+      },
+      { id: '72e41677-07cc-4e31-b3cb-207d7e2687ca' },
+    )
+  })
   await test.step('Invalid customer registration is rejected before database: 400', async () => {
     await swaggerExecute(page, 'POST', '/v1/auth/register', 400, {
       email: 'invalid-address',

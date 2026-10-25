@@ -27,8 +27,9 @@
     "test:api:visual:smoke": "npm run build && node scripts/run-api-tests.cjs visual-smoke",
     "test:api:visual:all": "npm run build && node scripts/run-api-tests.cjs visual-db",
     "test:api:visual:report": "node scripts/run-api-tests.cjs visual-report",
-    "test:api:visual:dev": "npm run build && node scripts/run-api-dev-inspect.cjs",
-    "test:api:security": "npm run build && node scripts/run-api-tests.cjs security"
+    "test:api:security": "npm run build && node scripts/run-api-tests.cjs security",
+    "cleanup:visual-dev:preview": "node scripts/cleanup-visual-dev-fixtures.cjs",
+    "cleanup:visual-dev:apply": "node scripts/cleanup-visual-dev-fixtures.cjs --apply"
   },
   "engines": {
     "node": ">=24.11.0 <25"

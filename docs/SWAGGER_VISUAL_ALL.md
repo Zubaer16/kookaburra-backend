@@ -47,3 +47,14 @@ The test server runs automatically on **4101**; don't manually start it. Port 41
 ## Phase 03A negative / boundary / RBAC coverage
 
 `npm run test:api:visual:all` now also drives Swagger UI PATCH/DELETE and path/query parameters, tests negative and oversized data, duplicate SKU, wrong roles and rejected requests with an isolated local PostgreSQL backend. `npm run test:api:security` adds dedicated Catalog security tests. `npm run test:api:smoke` adds a no-DB OpenAPI route/authorization/DTO contract test. See `docs/PHASE03A_TEST_COVERAGE.md`.
+
+## Single visual DB strategy (Phase 03A cleanup)
+
+`test:api:visual:all` is the sole DB-connected Swagger UI browser suite.
+It now runs the Auth negative UI scenarios formerly unique to `visual:dev`
+(invalid and duplicate registration, wrong password, rejected logged-out
+refresh, customer denied Admin login/profile), as well as the Catalog suites.
+`test:api:visual:smoke` remains separate as a **no-database** quick check.
+`test:api:visual:dev` was removed to avoid writing disposable accounts to
+`kookaburra-api-dev`. See `docs/VISUAL_DEV_REMOVAL.md` to clean up
+previously retained dev-inspection records.
