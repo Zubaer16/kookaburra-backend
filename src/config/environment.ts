@@ -21,6 +21,8 @@ export type Environment = {
   MEDIA_DISK_API_BASE_URL: string
   MEDIA_DISK_PUBLIC_BASE_URL: string
   MEDIA_DISK_UPLOAD_SECRET: string
+  MEDIA_CDN_CF_ZONE_ID: string
+  MEDIA_CDN_CF_API_TOKEN: string
 }
 
 /** Validate deployment config without disclosing secrets in thrown errors. */
@@ -196,7 +198,24 @@ export function validateEnvironment(raw: Record<string, unknown>): Environment {
         )
     }
   }
+  // Optional Cloudflare cache purge. Configure both together; deletion jobs
+  // retry if the CDN is unavailable instead of silently marking cleanup done.
+  const cdnZoneId = String(raw.MEDIA_CDN_CF_ZONE_ID ?? '').trim()
+  const cdnToken = String(raw.MEDIA_CDN_CF_API_TOKEN ?? '').trim()
+  if (!!cdnZoneId !== !!cdnToken)
+    throw new Error(
+      'Cloudflare CDN zone ID and token must be configured together',
+    )
+  if (cdnZoneId && !/^[0-9a-f]{32}$/i.test(cdnZoneId))
+    throw new Error('Invalid Cloudflare CDN zone ID')
+  if (
+    cdnToken &&
+    (cdnToken.length < 20 || cdnToken.length > 512 || /\s/.test(cdnToken))
+  )
+    throw new Error('Invalid Cloudflare CDN API token')
   return {
+    MEDIA_CDN_CF_ZONE_ID: cdnZoneId,
+    MEDIA_CDN_CF_API_TOKEN: cdnToken,
     MEDIA_PROVIDER: provider,
     MEDIA_DISK_ROOT: diskRoot,
     MEDIA_DISK_API_BASE_URL: diskApi,

@@ -33,6 +33,21 @@ test('03C OpenAPI documents media/gallery JWT-only operations', async ({
   const products = doc.components.schemas.CatalogProductResponseDto.properties
   for (const field of ['image', 'gallery', 'images'])
     expect(products).toHaveProperty(field)
+  const galleryImage =
+    doc.components.schemas.CatalogGalleryImageResponseDto.properties
+  for (const field of [
+    'src',
+    'url',
+    'alt',
+    'width',
+    'height',
+    'srcSet',
+    'sizes',
+  ])
+    expect(galleryImage).toHaveProperty(field)
+  expect(
+    doc.components.schemas.CatalogGalleryImageResponseDto.required ?? [],
+  ).not.toContain('srcSet')
 })
 
 test('03C-2B disk upload and public delivery expose documented semantics, without JWT session fallback', async ({

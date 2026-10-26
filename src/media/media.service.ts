@@ -12,6 +12,7 @@ import { Environment } from '../config/environment'
 import { Prisma } from '../generated/prisma/client'
 import { MediaStorageRegistry } from './storage.registry'
 import { DiskMediaProvider } from './disk.storage'
+import { MediaCdnPurgeService } from './cdn-purge.service'
 import { ReplaceProductGalleryDto, StartMediaUploadDto } from './media.dto'
 
 const RETENTION_MS = 7 * 24 * 60 * 60 * 1000
@@ -40,6 +41,7 @@ export class MediaService {
     private readonly config: ConfigService<Environment, true>,
     private readonly storage: MediaStorageRegistry,
     private readonly disk: DiskMediaProvider,
+    private readonly cdn: MediaCdnPurgeService,
   ) {}
 
   async createUpload(input: StartMediaUploadDto, actorId: string) {
@@ -498,6 +500,13 @@ export class MediaService {
         )
           throw new ConflictException('Media provider or namespace mismatch')
         await this.storage.forKey(claimed.provider).delete(claimed.objectKey)
+        // A successful storage delete is not full cleanup when CDN invalidation is enabled.
+        // Failure leaves the durable job retryable; provider delete is idempotent.
+        await this.cdn.purge(
+          claimed.provider,
+          claimed.objectKey,
+          claimed.publicUrl,
+        )
         await this.db.client.$transaction(async (tx) => {
           await tx.mediaAsset.update({
             where: { id: claimed.id },

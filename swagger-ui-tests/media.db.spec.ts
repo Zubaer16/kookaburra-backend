@@ -55,7 +55,8 @@ test('03C Swagger Chromium: JWT, gallery changes, shared asset rejection and DB 
         bytes: 999,
         width: 640,
         height: 480,
-        publicUrl: 'https://res.cloudinary.com/sample/image/upload/shirt.png',
+        publicUrl:
+          'https://res.cloudinary.com/sample/image/upload/v1720012345/shirt.png',
         status: 'ACTIVE',
         uploadExpiresAt: new Date(Date.now() + 3600000),
       },
@@ -82,6 +83,14 @@ test('03C Swagger Chromium: JWT, gallery changes, shared asset rejection and DB 
     expect(
       await f.db.productMedia.count({ where: { productId: id, mediaId } }),
     ).toBe(1)
+    await swaggerExecute(page, 'GET', '/v1/products/{slug}', 200, undefined, {
+      slug: f.slug('shirt'),
+    })
+    const publicProduct = await request.get(`/v1/products/${f.slug('shirt')}`)
+    expect(publicProduct.status()).toBe(200)
+    expect((await publicProduct.json()).gallery[0].srcSet).toContain(
+      '/f_auto,q_auto,w_640/',
+    )
     await swaggerExecute(
       page,
       'DELETE',

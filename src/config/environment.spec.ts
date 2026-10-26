@@ -114,6 +114,30 @@ describe('environment configuration', () => {
       }),
     ).toThrow()
   })
+  it('validates optional Cloudflare purge credentials without requiring a CDN for local development', () => {
+    expect(validateEnvironment({}).MEDIA_CDN_CF_ZONE_ID).toBe('')
+    expect(() =>
+      validateEnvironment({ MEDIA_CDN_CF_API_TOKEN: 'a'.repeat(40) }),
+    ).toThrow('together')
+    expect(() =>
+      validateEnvironment({
+        MEDIA_CDN_CF_ZONE_ID: 'invalid',
+        MEDIA_CDN_CF_API_TOKEN: 'a'.repeat(40),
+      }),
+    ).toThrow('zone')
+    expect(() =>
+      validateEnvironment({
+        MEDIA_CDN_CF_ZONE_ID: 'a'.repeat(32),
+        MEDIA_CDN_CF_API_TOKEN: 'short',
+      }),
+    ).toThrow('token')
+    expect(
+      validateEnvironment({
+        MEDIA_CDN_CF_ZONE_ID: 'a'.repeat(32),
+        MEDIA_CDN_CF_API_TOKEN: 'x'.repeat(40),
+      }).MEDIA_CDN_CF_ZONE_ID,
+    ).toHaveLength(32)
+  })
   it('rejects invalid ports and malformed docs flag', () => {
     expect(() => validateEnvironment({ PORT: '-4' })).toThrow()
     expect(() =>

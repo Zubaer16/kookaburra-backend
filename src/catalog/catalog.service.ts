@@ -28,6 +28,7 @@ const productIncludes = {
       media: {
         select: {
           id: true,
+          provider: true,
           status: true,
           publicUrl: true,
           width: true,

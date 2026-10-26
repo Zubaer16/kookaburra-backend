@@ -49,9 +49,9 @@ test('03C gallery ordering, shared references, detachment and durable cleanup jo
           providerAssetId: `fixture-${id}`,
           mimeType: 'image/png',
           bytes: 100,
-          width: 100,
-          height: 80,
-          publicUrl: `https://res.cloudinary.com/sample/image/upload/${label}.png`,
+          width: 960,
+          height: 720,
+          publicUrl: `https://res.cloudinary.com/sample/image/upload/v1720012345/${label}.png`,
           status: 'ACTIVE',
           uploadExpiresAt: new Date(Date.now() + 3600000),
         },
@@ -78,6 +78,9 @@ test('03C gallery ordering, shared references, detachment and durable cleanup jo
       'Front',
     ])
     expect(publicProduct.image).toContain('back.png')
+    expect(publicProduct.gallery[0].srcSet).toContain('/f_auto,q_auto,w_960/')
+    expect(publicProduct.gallery[0].srcSet).not.toContain('w_1280/')
+    expect(publicProduct.gallery[0].sizes).toContain('100vw')
     expect(JSON.stringify(publicProduct)).not.toContain('providerAssetId')
     await assertSafeError(
       await request.delete(`/v1/admin/media/${mediaIds[0]}`, { headers }),
@@ -153,22 +156,31 @@ test('03C gallery ordering, shared references, detachment and durable cleanup jo
   }
 })
 
-test('03C-2A provider switching: gallery accepts stored S3 asset and schedules safe deletion without rewriting provider', async ({ request }) => {
+test('03C-2A provider switching: gallery accepts stored S3 asset and schedules safe deletion without rewriting provider', async ({
+  request,
+}) => {
   const fixture = new CatalogTestFixture(request)
   const mediaId = randomUUID()
   try {
     const owner = await fixture.account('OWNER')
     const headers = bearer(owner.token)
     const category = await request.post('/v1/admin/categories', {
-      headers, data: { name: 'Mixed Providers', slug: fixture.slug('provider-category') },
+      headers,
+      data: {
+        name: 'Mixed Providers',
+        slug: fixture.slug('provider-category'),
+      },
     })
     expect(category.status()).toBe(201)
     const product = await request.post('/v1/admin/products', {
       headers,
       data: {
-        title: 'Provider Migration Product', slug: fixture.slug('provider-product'),
-        sku: fixture.sku('provider-product'), priceMinor: 2500,
-        status: 'ACTIVE', categoryIds: [(await category.json()).id],
+        title: 'Provider Migration Product',
+        slug: fixture.slug('provider-product'),
+        sku: fixture.sku('provider-product'),
+        priceMinor: 2500,
+        status: 'ACTIVE',
+        categoryIds: [(await category.json()).id],
       },
     })
     expect(product.status()).toBe(201)
@@ -176,31 +188,54 @@ test('03C-2A provider switching: gallery accepts stored S3 asset and schedules s
     const namespace = 'projects/kookaburra/products'
     await fixture.db.mediaAsset.create({
       data: {
-        id: mediaId, provider: 's3', namespace,
+        id: mediaId,
+        provider: 's3',
+        namespace,
         objectKey: `${namespace}/${mediaId}`,
         providerAssetId: 'placeholder-sha256-for-isolated-fixture',
-        mimeType: 'image/png', bytes: 2048, width: 640, height: 480,
+        mimeType: 'image/png',
+        bytes: 2048,
+        width: 640,
+        height: 480,
         publicUrl: `https://cdn.example.test/${namespace}/${mediaId}`,
-        status: 'ACTIVE', uploadExpiresAt: new Date(Date.now() + 3600000),
+        status: 'ACTIVE',
+        uploadExpiresAt: new Date(Date.now() + 3600000),
       },
     })
-    const attached = await request.put(`/v1/admin/products/${productId}/media`, {
-      headers, data: { items: [{ mediaId, position: 0, altText: 'S3 cover' }] },
-    })
+    const attached = await request.put(
+      `/v1/admin/products/${productId}/media`,
+      {
+        headers,
+        data: { items: [{ mediaId, position: 0, altText: 'S3 cover' }] },
+      },
+    )
     expect(attached.status()).toBe(200)
-    const catalog = await request.get(`/v1/products/${fixture.slug('provider-product')}`)
+    const catalog = await request.get(
+      `/v1/products/${fixture.slug('provider-product')}`,
+    )
     expect(catalog.status()).toBe(200)
     const body = await catalog.json()
     expect(body.image).toContain('cdn.example.test')
+    expect(body.gallery[0]).not.toHaveProperty('srcSet')
     expect(JSON.stringify(body)).not.toContain('placeholder-sha256')
-    const detached = await request.put(`/v1/admin/products/${productId}/media`, {
-      headers, data: { items: [] },
-    })
+    const detached = await request.put(
+      `/v1/admin/products/${productId}/media`,
+      {
+        headers,
+        data: { items: [] },
+      },
+    )
     expect(detached.status()).toBe(200)
-    const stored = await fixture.db.mediaAsset.findUniqueOrThrow({ where: { id: mediaId } })
+    const stored = await fixture.db.mediaAsset.findUniqueOrThrow({
+      where: { id: mediaId },
+    })
     expect(stored.provider).toBe('s3')
     expect(stored.status).toBe('PENDING_DELETE')
-    expect(await fixture.db.mediaDeletionJob.count({ where: { mediaId, status: 'PENDING' } })).toBe(1)
+    expect(
+      await fixture.db.mediaDeletionJob.count({
+        where: { mediaId, status: 'PENDING' },
+      }),
+    ).toBe(1)
   } finally {
     await fixture.db.productMedia.deleteMany({ where: { mediaId } })
     await fixture.db.mediaDeletionJob.deleteMany({ where: { mediaId } })

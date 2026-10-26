@@ -17,6 +17,26 @@ export class CatalogCategoryResponseDto {
   @ApiProperty() active!: boolean
 }
 
+/** Read-only image delivery metadata; a responsive candidate is published only if real. */
+export class CatalogGalleryImageResponseDto {
+  @ApiProperty({ format: 'uuid' }) id!: string
+  @ApiProperty({ description: 'Verified full-size image URL' }) src!: string
+  @ApiProperty({ description: 'Alias of src' }) url!: string
+  @ApiProperty() alt!: string
+  @ApiProperty({ minimum: 0 }) position!: number
+  @ApiProperty({ minimum: 1 }) width!: number
+  @ApiProperty({ minimum: 1 }) height!: number
+  @ApiPropertyOptional({
+    description:
+      'Actual Cloudinary width-descriptor candidates; absent for S3/R2/disk originals',
+  })
+  srcSet?: string
+  @ApiPropertyOptional({
+    description: 'Recommended responsive layout hint when srcSet is present',
+  })
+  sizes?: string
+}
+
 /** Existing response properties remain available; only integration-critical
  * projection fields are documented here. Media fields follow in Phase 03C.
  */
@@ -56,14 +76,15 @@ export class CatalogProductResponseDto {
   })
   image!: string | null
   @ApiProperty({
-    type: [Object],
+    type: [CatalogGalleryImageResponseDto],
     description:
-      'Verified public image URLs, ordered by position; src/alt for Storefront',
+      'Verified image URLs ordered by position; only Cloudinary receives real responsive transforms',
   })
   gallery!: object[]
   @ApiProperty({
-    type: [Object],
-    description: 'Alias of gallery; id/url/alt for Admin integration',
+    type: [CatalogGalleryImageResponseDto],
+    description:
+      'Alias of gallery; id/url/alt and optional Cloudinary responsive hints',
   })
   images!: object[]
   @ApiProperty({ example: 'Just in' }) badge!: string

@@ -1,3 +1,4 @@
+import { responsiveImage } from '../media/responsive'
 /** Additive read-model: legacy persistence fields remain unchanged.
  * The English-only frontends map title/description strings to {en: ...}.
  * Do NOT invent media URLs: image fields arrive with Phase 03C.
@@ -17,6 +18,7 @@ export type CatalogProductRecord = {
     position: number
     media: {
       id: string
+      provider?: string
       status: string
       publicUrl: string | null
       width: number
@@ -54,6 +56,11 @@ export function presentCatalogProduct<T extends CatalogProductRecord>(
       width: link.media.width,
       height: link.media.height,
       position: link.position,
+      ...responsiveImage(
+        link.media.provider ?? '',
+        link.media.publicUrl,
+        link.media.width,
+      ),
     }))
   const available = product.hasVariants
     ? variants.some((variant) => variant.stockOnHand > 0)
