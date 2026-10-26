@@ -4,6 +4,7 @@ import type { Environment } from '../config/environment'
 import type { MediaStorageProvider } from './storage'
 import { CloudinaryMediaProvider } from './storage'
 import { S3MediaProvider } from './s3.storage'
+import { DiskMediaProvider } from './disk.storage'
 
 /** Persist provider per asset: changing default never reroutes deletion of old files. */
 @Injectable()
@@ -12,6 +13,7 @@ export class MediaStorageRegistry {
     private readonly config: ConfigService<Environment, true>,
     private readonly cloudinary: CloudinaryMediaProvider,
     private readonly s3: S3MediaProvider,
+    private readonly disk: DiskMediaProvider,
   ) {}
 
   get current(): MediaStorageProvider {
@@ -24,6 +26,8 @@ export class MediaStorageRegistry {
         return this.cloudinary
       case 's3':
         return this.s3
+      case 'disk':
+        return this.disk
       default:
         throw new ServiceUnavailableException('Unknown stored media provider')
     }

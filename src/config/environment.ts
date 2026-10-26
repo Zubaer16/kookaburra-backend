@@ -1,3 +1,4 @@
+import path from 'node:path'
 export type Environment = {
   NODE_ENV: 'development' | 'test' | 'production'
   PORT: number
@@ -9,13 +10,17 @@ export type Environment = {
   MEDIA_API_KEY: string
   MEDIA_API_SECRET: string
   MEDIA_NAMESPACE: string
-  MEDIA_PROVIDER: 'cloudinary' | 's3'
+  MEDIA_PROVIDER: 'cloudinary' | 's3' | 'disk'
   MEDIA_S3_ENDPOINT: string
   MEDIA_S3_BUCKET: string
   MEDIA_S3_REGION: string
   MEDIA_S3_ACCESS_KEY_ID: string
   MEDIA_S3_SECRET_ACCESS_KEY: string
   MEDIA_S3_PUBLIC_BASE_URL: string
+  MEDIA_DISK_ROOT: string
+  MEDIA_DISK_API_BASE_URL: string
+  MEDIA_DISK_PUBLIC_BASE_URL: string
+  MEDIA_DISK_UPLOAD_SECRET: string
 }
 
 /** Validate deployment config without disclosing secrets in thrown errors. */
@@ -109,15 +114,22 @@ export function validateEnvironment(raw: Record<string, unknown>): Environment {
   )
     throw new Error('Invalid media namespace')
   const provider = String(raw.MEDIA_PROVIDER ?? 'cloudinary')
-  if (provider !== 'cloudinary' && provider !== 's3')
-    throw new Error('MEDIA_PROVIDER must be cloudinary or s3')
+  if (provider !== 'cloudinary' && provider !== 's3' && provider !== 'disk')
+    throw new Error('MEDIA_PROVIDER must be cloudinary, s3 or disk')
   const s3Endpoint = String(raw.MEDIA_S3_ENDPOINT ?? '').trim()
   const s3Bucket = String(raw.MEDIA_S3_BUCKET ?? '').trim()
   const s3Region = String(raw.MEDIA_S3_REGION ?? '').trim()
   const s3AccessKey = String(raw.MEDIA_S3_ACCESS_KEY_ID ?? '').trim()
   const s3Secret = String(raw.MEDIA_S3_SECRET_ACCESS_KEY ?? '').trim()
   const s3PublicBase = String(raw.MEDIA_S3_PUBLIC_BASE_URL ?? '').trim()
-  const allS3 = [s3Endpoint, s3Bucket, s3Region, s3AccessKey, s3Secret, s3PublicBase]
+  const allS3 = [
+    s3Endpoint,
+    s3Bucket,
+    s3Region,
+    s3AccessKey,
+    s3Secret,
+    s3PublicBase,
+  ]
   if (allS3.some(Boolean) && !allS3.every(Boolean))
     throw new Error('S3 media configuration requires all six variables')
   if (provider === 's3' && !allS3.every(Boolean))
@@ -128,18 +140,68 @@ export function validateEnvironment(raw: Record<string, unknown>): Environment {
     if (
       endpoint.protocol !== 'https:' ||
       endpoint.origin !== s3Endpoint ||
-      endpoint.username || endpoint.password ||
+      endpoint.username ||
+      endpoint.password ||
       !['https:'].includes(cdn.protocol) ||
-      !!cdn.username || !!cdn.password || !!cdn.search || !!cdn.hash ||
-      s3PublicBase.endsWith('/') || s3PublicBase.includes('..') ||
+      !!cdn.username ||
+      !!cdn.password ||
+      !!cdn.search ||
+      !!cdn.hash ||
+      s3PublicBase.endsWith('/') ||
+      s3PublicBase.includes('..') ||
       !/^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$/.test(s3Bucket) ||
       !/^(?:[a-z0-9-]{2,40}|auto)$/.test(s3Region) ||
       !/^[a-zA-Z0-9_-]{4,128}$/.test(s3AccessKey) ||
       s3Secret.length < 16
-    ) throw new Error('Invalid S3 media configuration')
+    )
+      throw new Error('Invalid S3 media configuration')
+  }
+  // Persistent VPS disk storage: never use ephemeral serverless local files.
+  const diskRoot = String(raw.MEDIA_DISK_ROOT ?? '').trim()
+  const diskApi = String(raw.MEDIA_DISK_API_BASE_URL ?? '').trim()
+  const diskPublic = String(raw.MEDIA_DISK_PUBLIC_BASE_URL ?? '').trim()
+  const diskSecret = String(raw.MEDIA_DISK_UPLOAD_SECRET ?? '')
+  const diskFields = [diskRoot, diskApi, diskPublic, diskSecret]
+  if (diskFields.some(Boolean) && !diskFields.every(Boolean))
+    throw new Error('Disk media configuration requires all four variables')
+  if (provider === 'disk' && !diskFields.every(Boolean))
+    throw new Error('Selected disk media provider must be configured')
+  if (diskFields.every(Boolean)) {
+    // Node's native win32 path handling is used on Windows; posix on VPS.
+    if (
+      !path.isAbsolute(diskRoot) ||
+      path.normalize(diskRoot) === path.parse(diskRoot).root ||
+      diskRoot.split(/[\\/]/).includes('..') ||
+      diskSecret.length < 32
+    )
+      throw new Error('Invalid disk storage root or signing secret')
+    for (const base of [diskApi, diskPublic]) {
+      let url: URL
+      try {
+        url = new URL(base)
+      } catch {
+        throw new Error('Invalid disk media URL')
+      }
+      if (
+        !['http:', 'https:'].includes(url.protocol) ||
+        (mode === 'production' && url.protocol !== 'https:') ||
+        url.origin !== base ||
+        url.username ||
+        url.password ||
+        url.search ||
+        url.hash
+      )
+        throw new Error(
+          'Disk API/public base must be a bare HTTPS origin in production',
+        )
+    }
   }
   return {
     MEDIA_PROVIDER: provider,
+    MEDIA_DISK_ROOT: diskRoot,
+    MEDIA_DISK_API_BASE_URL: diskApi,
+    MEDIA_DISK_PUBLIC_BASE_URL: diskPublic,
+    MEDIA_DISK_UPLOAD_SECRET: diskSecret,
     MEDIA_S3_ENDPOINT: s3Endpoint,
     MEDIA_S3_BUCKET: s3Bucket,
     MEDIA_S3_REGION: s3Region,

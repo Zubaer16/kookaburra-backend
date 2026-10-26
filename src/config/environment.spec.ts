@@ -1,3 +1,4 @@
+import path from 'node:path'
 import { validateEnvironment } from './environment'
 
 describe('environment configuration', () => {
@@ -60,9 +61,58 @@ describe('environment configuration', () => {
     expect(validateEnvironment(setup).MEDIA_PROVIDER).toBe('s3')
     expect(() => validateEnvironment({ MEDIA_PROVIDER: 'untrusted' })).toThrow()
     expect(() => validateEnvironment({ MEDIA_PROVIDER: 's3' })).toThrow()
-    expect(() => validateEnvironment({ ...setup, MEDIA_S3_ENDPOINT: 'http://127.0.0.1:9000' })).toThrow()
-    expect(() => validateEnvironment({ ...setup, MEDIA_S3_PUBLIC_BASE_URL: 'https://cdn.example.test/path?redirect=x' })).toThrow()
+    expect(() =>
+      validateEnvironment({
+        ...setup,
+        MEDIA_S3_ENDPOINT: 'http://127.0.0.1:9000',
+      }),
+    ).toThrow()
+    expect(() =>
+      validateEnvironment({
+        ...setup,
+        MEDIA_S3_PUBLIC_BASE_URL: 'https://cdn.example.test/path?redirect=x',
+      }),
+    ).toThrow()
     expect(validateEnvironment({}).MEDIA_PROVIDER).toBe('cloudinary')
+  })
+  it('validates persistent VPS disk settings and does not allow temporary insecure production URLs', () => {
+    const good = {
+      MEDIA_PROVIDER: 'disk',
+      MEDIA_DISK_ROOT: path.resolve('media-volume'),
+      MEDIA_DISK_API_BASE_URL: 'http://localhost:4000',
+      MEDIA_DISK_PUBLIC_BASE_URL: 'http://localhost:4000',
+      MEDIA_DISK_UPLOAD_SECRET: 'z'.repeat(40),
+    }
+    expect(validateEnvironment(good).MEDIA_PROVIDER).toBe('disk')
+    expect(() => validateEnvironment({ MEDIA_PROVIDER: 'disk' })).toThrow()
+    expect(() =>
+      validateEnvironment({ ...good, MEDIA_DISK_ROOT: '../escape' }),
+    ).toThrow()
+    expect(() =>
+      validateEnvironment({ ...good, MEDIA_DISK_UPLOAD_SECRET: 'short' }),
+    ).toThrow()
+    expect(() =>
+      validateEnvironment({
+        ...good,
+        MEDIA_DISK_PUBLIC_BASE_URL: 'https://cdn.example/path',
+      }),
+    ).toThrow()
+    const secure = {
+      ...good,
+      NODE_ENV: 'production',
+      CORS_ORIGINS: 'https://shop.example',
+      DATABASE_URL: 'postgresql://example/db',
+      JWT_ACCESS_SECRET: 'a'.repeat(40),
+      MEDIA_DISK_API_BASE_URL: 'https://api.example',
+      MEDIA_DISK_PUBLIC_BASE_URL: 'https://media.example',
+    }
+    expect(validateEnvironment(secure).MEDIA_PROVIDER).toBe('disk')
+    expect(() =>
+      validateEnvironment({
+        ...secure,
+        MEDIA_DISK_API_BASE_URL: 'http://api.example',
+      }),
+    ).toThrow()
   })
   it('rejects invalid ports and malformed docs flag', () => {
     expect(() => validateEnvironment({ PORT: '-4' })).toThrow()

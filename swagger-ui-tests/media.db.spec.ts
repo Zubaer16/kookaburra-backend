@@ -17,6 +17,10 @@ test('03C Swagger Chromium: JWT, gallery changes, shared asset rejection and DB 
   try {
     const owner = await f.account('OWNER')
     await openSwagger(page)
+    // New VPS delivery endpoint must not reveal unattached/nonexistent media.
+    await swaggerExecute(page, 'GET', '/v1/media/files/{id}', 404, undefined, {
+      id: mediaId,
+    })
     await swaggerExecute(page, 'GET', '/v1/admin/media/{id}', 401, undefined, {
       id: mediaId,
     })

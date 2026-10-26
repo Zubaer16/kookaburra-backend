@@ -20,6 +20,15 @@ test('03C Media Bearer RBAC, validation and untrusted identifiers', async ({
       ['get', '/v1/admin/media-deletion-jobs'],
       ['post', `/v1/admin/media-deletion-jobs/${id}/retry`],
     ] as const
+    // Public delivery is explicitly gated by verified media + active product relation.
+    await assertSafeError(await request.get(`/v1/media/files/${id}`), 404)
+    await assertSafeError(
+      await request.put(`/v1/media/disk-uploads/${id}`, {
+        headers: { 'Content-Type': 'image/png' },
+        data: Buffer.from('not-an-image'),
+      }),
+      404,
+    )
     for (const [method, path] of routes) {
       await assertSafeError(
         await request[method](

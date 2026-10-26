@@ -5,13 +5,20 @@ import { MediaController } from './media.controller'
 import { MediaService } from './media.service'
 import { CloudinaryMediaProvider } from './storage'
 import { S3MediaProvider } from './s3.storage'
+import { DiskMediaProvider } from './disk.storage'
+import { DiskMediaController } from './disk.controller'
 import { MediaStorageRegistry } from './storage.registry'
 
 @Module({
   imports: [AuthModule],
-  controllers: [MediaController],
+  controllers: [MediaController, DiskMediaController],
   providers: [
-    MediaService, CloudinaryMediaProvider, S3MediaProvider, MediaStorageRegistry, CatalogWriteGuard,
+    MediaService,
+    CloudinaryMediaProvider,
+    S3MediaProvider,
+    DiskMediaProvider,
+    MediaStorageRegistry,
+    CatalogWriteGuard,
   ],
   exports: [MediaService],
 })

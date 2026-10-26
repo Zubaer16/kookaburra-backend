@@ -34,3 +34,23 @@ test('03C OpenAPI documents media/gallery JWT-only operations', async ({
   for (const field of ['image', 'gallery', 'images'])
     expect(products).toHaveProperty(field)
 })
+
+test('03C-2B disk upload and public delivery expose documented semantics, without JWT session fallback', async ({
+  request,
+}) => {
+  const doc = await (await request.get('/docs-json')).json()
+  const put = doc.paths['/v1/media/disk-uploads/{id}']?.put
+  const get = doc.paths['/v1/media/files/{id}']?.get
+  expect(put).toBeDefined()
+  expect(get).toBeDefined()
+  expect(put.tags).toContain('Media / Disk')
+  expect(get.tags).toContain('Media / Disk')
+  expect(
+    put.parameters.some(
+      (x: { name: string }) => x.name === 'X-Media-Upload-Token',
+    ),
+  ).toBe(true)
+  expect(put.requestBody).toBeDefined()
+  expect(put.security ?? []).toEqual([])
+  expect(get.security ?? []).toEqual([])
+})

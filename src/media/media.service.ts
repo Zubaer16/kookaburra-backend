@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto'
+import type { Readable } from 'node:stream'
 import {
   BadRequestException,
   ConflictException,
@@ -10,6 +11,7 @@ import { DatabaseService } from '../database/database.service'
 import { Environment } from '../config/environment'
 import { Prisma } from '../generated/prisma/client'
 import { MediaStorageRegistry } from './storage.registry'
+import { DiskMediaProvider } from './disk.storage'
 import { ReplaceProductGalleryDto, StartMediaUploadDto } from './media.dto'
 
 const RETENTION_MS = 7 * 24 * 60 * 60 * 1000
@@ -37,6 +39,7 @@ export class MediaService {
     private readonly db: DatabaseService,
     private readonly config: ConfigService<Environment, true>,
     private readonly storage: MediaStorageRegistry,
+    private readonly disk: DiskMediaProvider,
   ) {}
 
   async createUpload(input: StartMediaUploadDto, actorId: string) {
@@ -82,7 +85,9 @@ export class MediaService {
       !asset.objectKey.startsWith(`${asset.namespace}/`)
     )
       throw new ConflictException('Wrong storage namespace')
-    const verified = await this.storage.forKey(asset.provider).verify(asset.objectKey)
+    const verified = await this.storage
+      .forKey(asset.provider)
+      .verify(asset.objectKey)
     if (verified.mimeType !== asset.mimeType || verified.bytes > asset.bytes)
       throw new ConflictException(
         'Uploaded image differs from approved type/size',
@@ -117,6 +122,57 @@ export class MediaService {
       await this.db.client.mediaAsset.findUniqueOrThrow({ where: { id } }),
     )
   }
+  /** Raw signed upload on VPS. Does not finalize the DB row until normal /complete verifies bytes. */
+  async uploadToDisk(
+    id: string,
+    token: string,
+    mimeType: string,
+    contentLength: number,
+    stream: Readable,
+  ) {
+    const asset = await this.db.client.mediaAsset.findUnique({ where: { id } })
+    if (!asset || asset.provider !== 'disk')
+      throw new NotFoundException('Disk upload not found')
+    if (asset.status !== 'PENDING_UPLOAD' || asset.uploadExpiresAt < new Date())
+      throw new ConflictException('Disk upload expired or finalized')
+    if (asset.mimeType !== mimeType)
+      throw new BadRequestException(
+        'Uploaded MIME does not match approved MIME',
+      )
+    if (asset.namespace !== this.config.get('MEDIA_NAMESPACE', { infer: true }))
+      throw new ConflictException('Wrong disk upload namespace')
+    await this.disk.receive(
+      asset.objectKey,
+      asset.mimeType,
+      asset.bytes,
+      token,
+      stream,
+      contentLength,
+    )
+    return {
+      mediaId: id,
+      uploaded: true,
+      next: `/v1/admin/media/${id}/complete`,
+    }
+  }
+
+  /** Public images must be active, attached to an ACTIVE product, and from the VPS provider. */
+  async readPublishedDiskImage(id: string) {
+    const asset = await this.db.client.mediaAsset.findFirst({
+      where: {
+        id,
+        provider: 'disk',
+        status: 'ACTIVE',
+        productLinks: { some: { product: { status: 'ACTIVE' } } },
+      },
+    })
+    if (!asset) throw new NotFoundException('Published image not found')
+    return {
+      stream: await this.disk.getStream(asset.objectKey),
+      mimeType: asset.mimeType,
+    }
+  }
+
   async getAsset(id: string) {
     const asset = await this.db.client.mediaAsset.findUnique({ where: { id } })
     if (!asset) throw new NotFoundException('Media not found')

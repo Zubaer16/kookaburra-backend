@@ -34,6 +34,7 @@ export async function createHttpApp(): Promise<INestApplication> {
       'Authorization',
       'X-CSRF-Token',
       'Idempotency-Key',
+      'X-Media-Upload-Token',
     ],
     origin(
       origin: string | undefined,
@@ -83,6 +84,10 @@ export async function createHttpApp(): Promise<INestApplication> {
       .addTag(
         'Media / Admin',
         'Verified image uploads, product galleries and safe deletion',
+      )
+      .addTag(
+        'Media / Disk',
+        'VPS-only signed raw uploads and published media delivery',
       )
       .addTag(
         'Workspace / Admin',

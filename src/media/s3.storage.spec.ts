@@ -1,6 +1,7 @@
 import type { ConfigService } from '@nestjs/config'
 import type { Environment } from '../config/environment'
 import { S3MediaProvider, inspectImage } from './s3.storage'
+import { DiskMediaProvider } from './disk.storage'
 import { CloudinaryMediaProvider } from './storage'
 import { MediaStorageRegistry } from './storage.registry'
 
@@ -74,10 +75,12 @@ describe('03C-2A AWS S3 / R2 signature and provider routing', () => {
     const cfg = config('s3')
     const cloud = new CloudinaryMediaProvider(cfg)
     const s3 = new S3MediaProvider(cfg)
-    const registry = new MediaStorageRegistry(cfg, cloud, s3)
+    const disk = new DiskMediaProvider(cfg)
+    const registry = new MediaStorageRegistry(cfg, cloud, s3, disk)
     expect(registry.current).toBe(s3)
     expect(registry.forKey('cloudinary')).toBe(cloud)
     expect(registry.forKey('s3')).toBe(s3)
+    expect(registry.forKey('disk')).toBe(disk)
     expect(() => registry.forKey('unknown')).toThrow()
   })
   it('derives dimensions from image bytes; rejects spoofed/invalid bytes', () => {

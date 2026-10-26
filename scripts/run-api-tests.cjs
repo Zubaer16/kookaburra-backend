@@ -6,6 +6,7 @@ const { spawnSync } = require('node:child_process')
 const { randomBytes } = require('node:crypto')
 const { existsSync } = require('node:fs')
 const path = require('node:path')
+const os = require('node:os')
 const { config } = require('dotenv')
 
 const root = path.resolve(__dirname, '..')
@@ -61,6 +62,10 @@ function baseEnv() {
     MEDIA_S3_ACCESS_KEY_ID: '',
     MEDIA_S3_SECRET_ACCESS_KEY: '',
     MEDIA_S3_PUBLIC_BASE_URL: '',
+    MEDIA_DISK_ROOT: '',
+    MEDIA_DISK_API_BASE_URL: '',
+    MEDIA_DISK_PUBLIC_BASE_URL: '',
+    MEDIA_DISK_UPLOAD_SECRET: '',
   }
 }
 
@@ -164,6 +169,18 @@ try {
       'index.js',
     )
     run(prisma, ['migrate', 'deploy'], safe)
+  }
+  // DB and Chromium-DB suites exercise real local disk I/O in an isolated,
+  // throwaway OS temporary folder; SECURITY stays on unconfigured cloudinary.
+  if (mode === 'db' || mode === 'visual-db') {
+    safe.MEDIA_PROVIDER = 'disk'
+    safe.MEDIA_DISK_ROOT = path.join(
+      os.tmpdir(),
+      `kb-media-api-test-${randomBytes(10).toString('hex')}`,
+    )
+    safe.MEDIA_DISK_API_BASE_URL = 'http://127.0.0.1:4101'
+    safe.MEDIA_DISK_PUBLIC_BASE_URL = 'http://127.0.0.1:4101'
+    safe.MEDIA_DISK_UPLOAD_SECRET = randomBytes(48).toString('hex')
   }
   safe.API_TEST_MODE = 'db'
   const cli = path.join(root, 'node_modules', '@playwright', 'test', 'cli.js')
