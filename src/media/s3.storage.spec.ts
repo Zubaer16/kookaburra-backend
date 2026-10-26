@@ -135,6 +135,41 @@ describe('03C-2A AWS S3 / R2 signature and provider routing', () => {
       global.fetch = original
     }
   })
+  it('PUTs generated WebP with an atomic precondition and never overwrites another file', async () => {
+    const provider = new S3MediaProvider(config())
+    const before = global.fetch
+    const payload = Buffer.from('generated-webp-payload')
+    const calls: Array<{ url: string; init: RequestInit }> = []
+    global.fetch = jest
+      .fn()
+      .mockImplementation((url: string, init: RequestInit) => {
+        calls.push({ url, init })
+        return Promise.resolve(new Response(null, { status: 200 }))
+      }) as typeof fetch
+    try {
+      await provider.writeRendition('projects/sample/123-r/w_320.webp', payload)
+      expect(calls).toHaveLength(1)
+      expect(calls[0]!.init.method).toBe('PUT')
+      expect(
+        (calls[0]!.init.headers as Record<string, string>)['If-None-Match'],
+      ).toBe('*')
+      expect(
+        (calls[0]!.init.headers as Record<string, string>)['Content-Type'],
+      ).toBe('image/webp')
+      expect(new URL(calls[0]!.url).pathname).toContain('/123-r/w_320.webp')
+      expect(
+        new URL(calls[0]!.url).searchParams.get('X-Amz-SignedHeaders'),
+      ).toBe('content-type;host;if-none-match')
+      global.fetch = jest
+        .fn()
+        .mockResolvedValue(new Response(null, { status: 412 })) as typeof fetch
+      await expect(
+        provider.writeRendition('projects/sample/123-r/w_320.webp', payload),
+      ).rejects.toThrow()
+    } finally {
+      global.fetch = before
+    }
+  })
   it('rejects provider response spoofing and treats missing deletion as idempotent', async () => {
     const provider = new S3MediaProvider(config())
     const original = global.fetch

@@ -14,6 +14,8 @@ import { MediaStorageRegistry } from './storage.registry'
 import { DiskMediaProvider } from './disk.storage'
 import { MediaCdnPurgeService } from './cdn-purge.service'
 import { ReplaceProductGalleryDto, StartMediaUploadDto } from './media.dto'
+import { readyWidths, renditionKey, widthsFor } from './renditions'
+import { S3MediaProvider } from './s3.storage'
 
 const RETENTION_MS = 7 * 24 * 60 * 60 * 1000
 const UPLOAD_TTL_MS = 60 * 60 * 1000
@@ -42,6 +44,7 @@ export class MediaService {
     private readonly storage: MediaStorageRegistry,
     private readonly disk: DiskMediaProvider,
     private readonly cdn: MediaCdnPurgeService,
+    private readonly s3: S3MediaProvider,
   ) {}
 
   async createUpload(input: StartMediaUploadDto, actorId: string) {
@@ -94,31 +97,47 @@ export class MediaService {
       throw new ConflictException(
         'Uploaded image differs from approved type/size',
       )
-    const update = await this.db.client.mediaAsset.updateMany({
-      where: {
-        id,
-        status: 'PENDING_UPLOAD',
-        uploadExpiresAt: { gt: new Date() },
-      },
-      data: {
-        status: 'ACTIVE',
-        providerAssetId: verified.assetId,
-        publicUrl: verified.url,
-        mimeType: verified.mimeType,
-        bytes: verified.bytes,
-        width: verified.width,
-        height: verified.height,
-      },
-    })
-    if (!update.count)
-      throw new ConflictException('Upload was finalized or expired')
-    await this.db.client.auditEvent.create({
-      data: {
-        actorId,
-        action: 'media.upload.verified',
-        targetType: 'media',
-        targetId: id,
-      },
+    await this.db.client.$transaction(async (tx) => {
+      const update = await tx.mediaAsset.updateMany({
+        where: {
+          id,
+          status: 'PENDING_UPLOAD',
+          uploadExpiresAt: { gt: new Date() },
+        },
+        data: {
+          status: 'ACTIVE',
+          providerAssetId: verified.assetId,
+          publicUrl: verified.url,
+          mimeType: verified.mimeType,
+          bytes: verified.bytes,
+          width: verified.width,
+          height: verified.height,
+        },
+      })
+      if (!update.count)
+        throw new ConflictException('Upload was finalized or expired')
+      if (
+        (asset.provider === 's3' || asset.provider === 'disk') &&
+        verified.width >= 320
+      ) {
+        await tx.outboxEvent.upsert({
+          where: { id },
+          create: {
+            id,
+            eventType: 'media.renditions',
+            payload: { mediaId: id },
+          },
+          update: {},
+        })
+      }
+      await tx.auditEvent.create({
+        data: {
+          actorId,
+          action: 'media.upload.verified',
+          targetType: 'media',
+          targetId: id,
+        },
+      })
     })
     return serialize(
       await this.db.client.mediaAsset.findUniqueOrThrow({ where: { id } }),
@@ -159,7 +178,7 @@ export class MediaService {
   }
 
   /** Public images must be active, attached to an ACTIVE product, and from the VPS provider. */
-  async readPublishedDiskImage(id: string) {
+  async readPublishedDiskImage(id: string, width?: number) {
     const asset = await this.db.client.mediaAsset.findFirst({
       where: {
         id,
@@ -169,6 +188,14 @@ export class MediaService {
       },
     })
     if (!asset) throw new NotFoundException('Published image not found')
+    if (width !== undefined) {
+      if (!readyWidths(asset.renditions, asset.width).includes(width))
+        throw new NotFoundException('Published rendition not found')
+      return {
+        stream: await this.disk.getRenditionStream(asset.objectKey, width),
+        mimeType: 'image/webp',
+      }
+    }
     return {
       stream: await this.disk.getStream(asset.objectKey),
       mimeType: asset.mimeType,
@@ -468,9 +495,17 @@ export class MediaService {
         const media = await tx.mediaAsset.findUnique({
           where: { id: job.mediaId },
         })
+        const rendering = await tx.outboxEvent.findFirst({
+          where: {
+            id: job.mediaId,
+            eventType: 'media.renditions',
+            status: 'PROCESSING',
+          },
+        })
         if (
           !media ||
           media.status !== 'PENDING_DELETE' ||
+          rendering ||
           (await tx.productMedia.count({ where: { mediaId: job.mediaId } }))
         )
           return null
@@ -499,6 +534,17 @@ export class MediaService {
           !claimed.objectKey.startsWith(`${namespace}/`)
         )
           throw new ConflictException('Media provider or namespace mismatch')
+        // The six keys are deterministic. Delete even partially-generated variants
+        // from a crashed worker, not just entries in the READY DB manifest.
+        if (claimed.provider === 's3' || claimed.provider === 'disk') {
+          for (const width of widthsFor(claimed.width)) {
+            if (claimed.provider === 's3')
+              await this.s3.deleteRendition(
+                renditionKey(claimed.objectKey, width),
+              )
+            else await this.disk.deleteRendition(claimed.objectKey, width)
+          }
+        }
         await this.storage.forKey(claimed.provider).delete(claimed.objectKey)
         // A successful storage delete is not full cleanup when CDN invalidation is enabled.
         // Failure leaves the durable job retryable; provider delete is idempotent.
@@ -506,11 +552,18 @@ export class MediaService {
           claimed.provider,
           claimed.objectKey,
           claimed.publicUrl,
+          claimed.provider === 's3' || claimed.provider === 'disk'
+            ? widthsFor(claimed.width)
+            : [],
         )
         await this.db.client.$transaction(async (tx) => {
           await tx.mediaAsset.update({
             where: { id: claimed.id },
-            data: { status: 'DELETED', publicUrl: null },
+            data: {
+              status: 'DELETED',
+              publicUrl: null,
+              renditions: Prisma.DbNull,
+            },
           })
           await tx.mediaDeletionJob.update({
             where: { id: job.id },

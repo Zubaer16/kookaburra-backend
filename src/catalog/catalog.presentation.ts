@@ -23,6 +23,7 @@ export type CatalogProductRecord = {
       publicUrl: string | null
       width: number
       height: number
+      renditions?: unknown
     }
   }>
 }
@@ -60,6 +61,7 @@ export function presentCatalogProduct<T extends CatalogProductRecord>(
         link.media.provider ?? '',
         link.media.publicUrl,
         link.media.width,
+        link.media.renditions,
       ),
     }))
   const available = product.hasVariants

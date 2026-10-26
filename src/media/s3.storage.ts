@@ -271,6 +271,57 @@ export class S3MediaProvider implements MediaStorageProvider {
       ...details,
     }
   }
+  /** Read only the DB-owned source image; cap download before decoding. */
+  async readSource(objectKey: string): Promise<Buffer> {
+    const response = await this.request(objectKey, 'GET')
+    if (!response.ok || !response.body)
+      throw new BadGatewayException('Media source unavailable')
+    const chunks: Buffer[] = []
+    let size = 0
+    const reader = response.body.getReader()
+    try {
+      for (;;) {
+        const { value, done } = await reader.read()
+        if (done) break
+        size += value.byteLength
+        if (size > MAX_BYTES)
+          throw new ConflictException('Media source exceeds size limit')
+        chunks.push(Buffer.from(value))
+      }
+    } finally {
+      reader.releaseLock()
+    }
+    return Buffer.concat(chunks)
+  }
+
+  /** Atomic create; a retry checks bytes rather than overwriting a published file. */
+  async writeRendition(key: string, contents: Buffer): Promise<void> {
+    const url = this.presign(key, 'PUT', 'image/webp')
+    let response: Response
+    try {
+      response = await fetch(url, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'image/webp', 'If-None-Match': '*' },
+        body: new Uint8Array(contents),
+        redirect: 'error',
+        signal: AbortSignal.timeout(30000),
+      })
+    } catch {
+      throw new BadGatewayException('Rendition storage unavailable')
+    }
+    if (response.status === 409 || response.status === 412) {
+      const old = await this.readSource(key)
+      if (!old.equals(contents))
+        throw new ConflictException('Existing rendition differs')
+      return
+    }
+    if (!response.ok) throw new BadGatewayException('Rendition storage failed')
+  }
+
+  async deleteRendition(key: string): Promise<void> {
+    await this.delete(key)
+  }
+
   async delete(objectKey: string) {
     const response = await this.request(objectKey, 'DELETE')
     if (response.status !== 404 && !response.ok)

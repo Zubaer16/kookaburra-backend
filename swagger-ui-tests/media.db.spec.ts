@@ -21,6 +21,15 @@ test('03C Swagger Chromium: JWT, gallery changes, shared asset rejection and DB 
     await swaggerExecute(page, 'GET', '/v1/media/files/{id}', 404, undefined, {
       id: mediaId,
     })
+    await swaggerExecute(
+      page,
+      'GET',
+      '/v1/media/files/{id}',
+      404,
+      undefined,
+      { id: mediaId },
+      { width: 320 },
+    )
     await swaggerExecute(page, 'GET', '/v1/admin/media/{id}', 401, undefined, {
       id: mediaId,
     })

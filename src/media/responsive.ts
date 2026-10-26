@@ -1,3 +1,4 @@
+import { readyWidths, renditionUrl } from './renditions'
 /** Only Cloudinary can derive actual resized URLs without a rendition worker.
  * S3/R2 and disk return the verified original; never advertise fake srcSet URLs.
  */
@@ -9,7 +10,20 @@ export function responsiveImage(
   provider: string,
   publicUrl: string | null,
   originalWidth: number,
+  manifest?: unknown,
 ): ResponsiveImage {
+  // S3 and disk image URLs become responsive only when every URL points to a
+  // real, verified generated file recorded in the DB, not a hypothetical resize.
+  if ((provider === 's3' || provider === 'disk') && publicUrl) {
+    const widths = readyWidths(manifest, originalWidth)
+    if (!widths.length) return {}
+    return {
+      srcSet: widths
+        .map((width) => `${renditionUrl(provider, publicUrl, width)} ${width}w`)
+        .join(', '),
+      sizes: '(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw',
+    }
+  }
   if (provider !== 'cloudinary' || !publicUrl) return {}
   if (!Number.isSafeInteger(originalWidth) || originalWidth < 320) return {}
   let url: URL

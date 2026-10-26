@@ -46,18 +46,30 @@ describe('03C-2C CDN purge with durable-job-friendly failure semantics', () => {
     ).toBe('Bearer fake-local-test-token-not-real')
   })
 
-  it('does not purge Cloudinary (Cloudinary destroy invalidates itself), even with CDN configured', async () => {
-    global.fetch = jest.fn() as typeof fetch
-    await new MediaCdnPurgeService(cfg()).purge('cloudinary', key, url)
-    expect(global.fetch).not.toHaveBeenCalled()
-  })
-  it('supports gated disk URLs and rejects a substituted URL without making any network request', async () => {
+  it('purges original and all deterministic derived URLs in a single request', async () => {
     global.fetch = jest
       .fn()
       .mockResolvedValue({
         ok: true,
         json: async () => ({ success: true }),
       }) as typeof fetch
+    await new MediaCdnPurgeService(cfg()).purge('s3', key, url, [320, 480])
+    expect(
+      JSON.parse(String((global.fetch as jest.Mock).mock.calls[0][1].body)),
+    ).toEqual({
+      files: [url, `${url}-r/w_320.webp`, `${url}-r/w_480.webp`],
+    })
+  })
+  it('does not purge Cloudinary (Cloudinary destroy invalidates itself), even with CDN configured', async () => {
+    global.fetch = jest.fn() as typeof fetch
+    await new MediaCdnPurgeService(cfg()).purge('cloudinary', key, url)
+    expect(global.fetch).not.toHaveBeenCalled()
+  })
+  it('supports gated disk URLs and rejects a substituted URL without making any network request', async () => {
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ success: true }),
+    }) as typeof fetch
     const service = new MediaCdnPurgeService(cfg())
     await expect(
       service.purge(
@@ -72,12 +84,10 @@ describe('03C-2C CDN purge with durable-job-friendly failure semantics', () => {
     expect(global.fetch).toHaveBeenCalledTimes(1)
   })
   it('fails closed when Cloudflare reports failure (durable cleanup job retries)', async () => {
-    global.fetch = jest
-      .fn()
-      .mockResolvedValue({
-        ok: true,
-        json: async () => ({ success: false }),
-      }) as typeof fetch
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ success: false }),
+    }) as typeof fetch
     await expect(
       new MediaCdnPurgeService(cfg()).purge('s3', key, url),
     ).rejects.toThrow('CDN invalidation failed')

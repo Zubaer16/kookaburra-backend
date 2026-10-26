@@ -33,6 +33,7 @@ const productIncludes = {
           publicUrl: true,
           width: true,
           height: true,
+          renditions: true,
         },
       },
     },

@@ -5,6 +5,7 @@ import {
 } from '@nestjs/common'
 import { ConfigService } from '@nestjs/config'
 import type { Environment } from '../config/environment'
+import { renditionUrl } from './renditions'
 
 /** Optional Cloudflare zone purge. Cloudinary already requests invalidation at destroy.
  * No purge from arbitrary caller-provided URLs; only DB-verified provider URLs in our namespace.
@@ -14,7 +15,12 @@ import type { Environment } from '../config/environment'
 export class MediaCdnPurgeService {
   constructor(private readonly config: ConfigService<Environment, true>) {}
 
-  async purge(provider: string, objectKey: string, publicUrl: string | null) {
+  async purge(
+    provider: string,
+    objectKey: string,
+    publicUrl: string | null,
+    widths: number[] = [],
+  ) {
     if (provider === 'cloudinary' || !publicUrl) return
     if (provider !== 's3' && provider !== 'disk')
       throw new ConflictException('Unknown CDN media provider')
@@ -34,6 +40,10 @@ export class MediaCdnPurgeService {
       throw new ConflictException(
         'CDN deletion URL differs from verified provider URL',
       )
+    const files = [
+      expected,
+      ...widths.map((w) => renditionUrl(provider, expected, w)),
+    ]
     try {
       const response = await fetch(
         `https://api.cloudflare.com/client/v4/zones/${zoneId}/purge_cache`,
@@ -43,7 +53,7 @@ export class MediaCdnPurgeService {
             Authorization: `Bearer ${token}`,
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({ files: [expected] }),
+          body: JSON.stringify({ files }),
           signal: AbortSignal.timeout(10000),
         },
       )

@@ -68,4 +68,10 @@ test('03C-2B disk upload and public delivery expose documented semantics, withou
   expect(put.requestBody).toBeDefined()
   expect(put.security ?? []).toEqual([])
   expect(get.security ?? []).toEqual([])
+  expect(
+    get.parameters.some(
+      (x: { name: string; in: string }) =>
+        x.name === 'width' && x.in === 'query',
+    ),
+  ).toBe(true)
 })

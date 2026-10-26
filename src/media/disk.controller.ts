@@ -1,10 +1,12 @@
 import {
+  BadRequestException,
   Controller,
   Get,
   Headers,
   Param,
   ParseUUIDPipe,
   Put,
+  Query,
   Req,
   Res,
   StreamableFile,
@@ -15,6 +17,7 @@ import {
   ApiHeader,
   ApiOkResponse,
   ApiOperation,
+  ApiQuery,
   ApiTags,
 } from '@nestjs/swagger'
 import type { Request, Response } from 'express'
@@ -70,12 +73,32 @@ export class DiskMediaController {
     summary:
       'Read verified VPS image only when attached to an active public product',
   })
-  @ApiOkResponse({ description: 'Raw JPEG/PNG/WebP image bytes' })
+  @ApiOkResponse({
+    description:
+      'Raw JPEG/PNG/WebP image bytes; ?width=320/480/... returns READY WebP',
+  })
+  @ApiQuery({
+    name: 'width',
+    required: false,
+    type: Number,
+    description: 'Generated rendition width; only READY widths are public',
+  })
   async image(
     @Param('id', ParseUUIDPipe) id: string,
     @Res({ passthrough: true }) res: Response,
+    @Query('width') width?: string,
   ) {
-    const { stream, mimeType } = await this.media.readPublishedDiskImage(id)
+    const parsed = width === undefined ? undefined : Number(width)
+    if (
+      width !== undefined &&
+      (!/^(320|480|640|960|1280|1600)$/.test(width) ||
+        !Number.isInteger(parsed))
+    )
+      throw new BadRequestException('Invalid rendition width')
+    const { stream, mimeType } = await this.media.readPublishedDiskImage(
+      id,
+      parsed,
+    )
     res.setHeader('X-Content-Type-Options', 'nosniff')
     res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin')
     res.setHeader('Cache-Control', 'public, max-age=60')

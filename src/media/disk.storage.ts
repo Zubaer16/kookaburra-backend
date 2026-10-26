@@ -13,6 +13,7 @@ import {
   realpath,
   link,
   unlink,
+  writeFile,
 } from 'node:fs/promises'
 import { dirname, join, relative, resolve, sep } from 'node:path'
 import type { Readable } from 'node:stream'
@@ -263,6 +264,82 @@ export class DiskMediaProvider implements MediaStorageProvider {
       throw error
     }
     return createReadStream(full)
+  }
+
+  /** All rendition paths are derived from a DB-owned UUID and fixed width. */
+  private renditionPath(objectKey: string, width: number): string {
+    if (![320, 480, 640, 960, 1280, 1600].includes(width))
+      throw new ConflictException('Invalid rendition width')
+    const { full } = this.objectPath(objectKey)
+    return `${full}-r${sep}w_${width}.webp`
+  }
+
+  async readSource(objectKey: string): Promise<Buffer> {
+    // getStream performs the public provider's file-type/link safety checks.
+    const chunks: Buffer[] = []
+    for await (const chunk of await this.getStream(objectKey))
+      chunks.push(Buffer.from(chunk as Buffer))
+    const bytes = Buffer.concat(chunks)
+    if (bytes.length > MAX_BYTES)
+      throw new ConflictException('Source too large')
+    return bytes
+  }
+
+  async writeRendition(
+    objectKey: string,
+    width: number,
+    content: Buffer,
+  ): Promise<void> {
+    const dir = `${await this.safeDirectory(objectKey)}-r`
+    await mkdir(dir, { recursive: true, mode: 0o700 })
+    if ((await lstat(dir)).isSymbolicLink())
+      throw new ConflictException('Rendition folder is symlinked')
+    const target = this.renditionPath(objectKey, width)
+    const temp = `${target}.${randomUUID()}.upload`
+    try {
+      await writeFile(temp, content, { flag: 'wx', mode: 0o600 })
+      try {
+        await link(temp, target)
+      } catch (error) {
+        if (!hasFsCode(error, 'EEXIST')) throw error
+        const info = await lstat(target)
+        if (!info.isFile() || info.nlink !== 1)
+          throw new ConflictException('Rendition target unsafe')
+        const old = await readFile(target)
+        if (!old.equals(content))
+          throw new ConflictException('Existing rendition differs')
+      }
+    } finally {
+      await unlink(temp).catch(() => undefined)
+    }
+  }
+
+  async getRenditionStream(objectKey: string, width: number) {
+    const file = this.renditionPath(objectKey, width)
+    try {
+      const info = await lstat(file)
+      if (
+        !info.isFile() ||
+        info.nlink !== 1 ||
+        info.size < 1 ||
+        info.size > MAX_BYTES
+      )
+        throw new NotFoundException('Rendition unavailable')
+    } catch (error) {
+      if (hasFsCode(error, 'ENOENT'))
+        throw new NotFoundException('Rendition unavailable')
+      throw error
+    }
+    return createReadStream(file)
+  }
+
+  async deleteRendition(objectKey: string, width: number) {
+    try {
+      await unlink(this.renditionPath(objectKey, width))
+    } catch (error) {
+      if (!hasFsCode(error, 'ENOENT'))
+        throw new BadGatewayException('Disk rendition deletion failed')
+    }
   }
 
   async delete(objectKey: string): Promise<void> {

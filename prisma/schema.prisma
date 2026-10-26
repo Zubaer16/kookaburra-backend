@@ -282,6 +282,7 @@ model MediaAsset {
   width              Int               @default(0)
   height             Int               @default(0)
   publicUrl          String?           @map("public_url") @db.Text
+  renditions         Json?             @db.JsonB // Phase 03C-2C2: READY widths only
   status             MediaAssetStatus  @default(PENDING_UPLOAD)
   uploadExpiresAt    DateTime          @map("upload_expires_at")
   createdAt          DateTime          @default(now()) @map("created_at")

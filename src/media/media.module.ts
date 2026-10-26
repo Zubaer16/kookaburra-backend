@@ -9,6 +9,7 @@ import { DiskMediaProvider } from './disk.storage'
 import { DiskMediaController } from './disk.controller'
 import { MediaStorageRegistry } from './storage.registry'
 import { MediaCdnPurgeService } from './cdn-purge.service'
+import { MediaRenditionService } from './media-rendition.service'
 
 @Module({
   imports: [AuthModule],
@@ -20,6 +21,7 @@ import { MediaCdnPurgeService } from './cdn-purge.service'
     DiskMediaProvider,
     MediaStorageRegistry,
     MediaCdnPurgeService,
+    MediaRenditionService,
     CatalogWriteGuard,
   ],
   exports: [MediaService],

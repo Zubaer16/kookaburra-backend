@@ -107,6 +107,15 @@ test('03C-2B real DB + signed VPS disk PUT, byte verification, public reference 
     expect(served.headers()['content-type']).toContain('image/png')
     expect(served.headers()['cache-control']).toContain('max-age=60')
     expect(await served.body()).toEqual(png)
+    // Original is only 240px wide, so the rendition worker must not invent 320px.
+    await assertSafeError(
+      await request.get(`/v1/media/files/${mediaId}?width=320`),
+      404,
+    )
+    await assertSafeError(
+      await request.get(`/v1/media/files/${mediaId}?width=123`),
+      400,
+    )
     expect(
       (await request.get(`/v1/products/${f.slug('shirt')}`)).status(),
     ).toBe(200)

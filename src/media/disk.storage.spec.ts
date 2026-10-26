@@ -172,3 +172,34 @@ describe('03C-2B persistent VPS media (no provider account required)', () => {
     expect(await readFile(protectedFile, 'utf8')).toBe('original')
   })
 })
+
+describe('03C-2C2 derived files remain separate from the original', () => {
+  let directory: string
+  let disk: DiskMediaProvider
+  beforeEach(async () => {
+    directory = await mkdtemp(join(tmpdir(), 'kb-rendition-'))
+    disk = new DiskMediaProvider(settings(directory))
+  })
+  afterEach(async () => {
+    await rm(directory, { recursive: true, force: true })
+  })
+
+  it('creates a derived file atomically, prevents different-content overwrite and deletes idempotently', async () => {
+    const content = Buffer.from('verified-webp-by-worker')
+    await disk.writeRendition(key, 320, content)
+    const contents: Buffer[] = []
+    for await (const chunk of await disk.getRenditionStream(key, 320))
+      contents.push(Buffer.from(chunk as Buffer))
+    expect(Buffer.concat(contents)).toEqual(content)
+    await disk.writeRendition(key, 320, content)
+    await expect(
+      disk.writeRendition(key, 320, Buffer.from('other')),
+    ).rejects.toThrow('differs')
+    await disk.deleteRendition(key, 320)
+    await disk.deleteRendition(key, 320)
+    await expect(disk.getRenditionStream(key, 320)).rejects.toThrow(
+      NotFoundException,
+    )
+    await expect(disk.getRenditionStream(key, 321)).rejects.toThrow()
+  })
+})

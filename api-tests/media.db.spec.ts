@@ -243,3 +243,82 @@ test('03C-2A provider switching: gallery accepts stored S3 asset and schedules s
     await fixture.close()
   }
 })
+
+test('03C-2C2 DB contract: only a stored READY rendition manifest publishes S3 srcSet', async ({
+  request,
+}) => {
+  const f = new CatalogTestFixture(request)
+  const mediaId = randomUUID()
+  const namespace = 'projects/kookaburra/products'
+  try {
+    const owner = await f.account('OWNER')
+    const headers = bearer(owner.token)
+    const category = await request.post('/v1/admin/categories', {
+      headers,
+      data: { name: 'Rendition', slug: f.slug('rendition-cat') },
+    })
+    expect(category.status()).toBe(201)
+    const slug = f.slug('rendition-shirt')
+    const product = await request.post('/v1/admin/products', {
+      headers,
+      data: {
+        title: 'Rendition Shirt',
+        slug,
+        sku: f.sku('rendition'),
+        priceMinor: 1000,
+        status: 'ACTIVE',
+        categoryIds: [(await category.json()).id],
+      },
+    })
+    expect(product.status()).toBe(201)
+    const url = `https://cdn.example.test/${namespace}/${mediaId}`
+    await f.db.mediaAsset.create({
+      data: {
+        id: mediaId,
+        provider: 's3',
+        namespace,
+        objectKey: `${namespace}/${mediaId}`,
+        providerAssetId: 'synthetic-for-test',
+        mimeType: 'image/png',
+        bytes: 2048,
+        width: 640,
+        height: 480,
+        publicUrl: url,
+        status: 'ACTIVE',
+        uploadExpiresAt: new Date(Date.now() + 60000),
+      },
+    })
+    expect(
+      (
+        await request.put(
+          `/v1/admin/products/${(await product.json()).id}/media`,
+          {
+            headers,
+            data: { items: [{ mediaId, position: 0, altText: 'Front' }] },
+          },
+        )
+      ).status(),
+    ).toBe(200)
+    const before = await (await request.get(`/v1/products/${slug}`)).json()
+    expect(before.gallery[0].srcSet).toBeUndefined()
+    await f.db.mediaAsset.update({
+      where: { id: mediaId },
+      data: {
+        renditions: [
+          { width: 320, bytes: 1800 },
+          { width: 480, bytes: 2900 },
+        ],
+      },
+    })
+    const after = await (await request.get(`/v1/products/${slug}`)).json()
+    expect(after.gallery[0].srcSet).toContain(`${url}-r/w_320.webp 320w`)
+    expect(after.gallery[0].srcSet).toContain(`${url}-r/w_480.webp 480w`)
+    expect(after.gallery[0].srcSet).not.toContain('w_640.webp')
+    expect(JSON.stringify(after)).not.toContain('providerAssetId')
+  } finally {
+    await f.db.productMedia.deleteMany({ where: { mediaId } })
+    await f.db.mediaDeletionJob.deleteMany({ where: { mediaId } })
+    await f.db.mediaAsset.deleteMany({ where: { id: mediaId } })
+    await f.close()
+  }
+})
