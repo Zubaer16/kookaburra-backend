@@ -11,6 +11,18 @@ export type CatalogProductRecord = {
   hasVariants: boolean
   categories: Array<{ categoryId: string }>
   variants: Array<{ stockOnHand: number; priceMinor: number | null }>
+  media?: Array<{
+    mediaId: string
+    altText: string
+    position: number
+    media: {
+      id: string
+      status: string
+      publicUrl: string | null
+      width: number
+      height: number
+    }
+  }>
 }
 
 type CatalogPresentedVariant<
@@ -25,18 +37,34 @@ export function presentCatalogProduct<T extends CatalogProductRecord>(
 ) {
   // Destructure variants before the object spread: spreading generic T and then
   // overwriting T.variants can preserve the original array type in TypeScript.
-  const { variants, ...productFields } = product
+  const { variants, media, ...productFields } = product
   const categoryIds = product.categories.map((item) => item.categoryId)
   const money = (minor: number) => ({
     amountMinor: minor,
     currency: product.currency,
   })
+  const gallery = (media ?? [])
+    .filter((link) => link.media.status === 'ACTIVE' && !!link.media.publicUrl)
+    .sort((a, b) => a.position - b.position)
+    .map((link) => ({
+      id: link.mediaId,
+      src: link.media.publicUrl!,
+      url: link.media.publicUrl!,
+      alt: link.altText,
+      width: link.media.width,
+      height: link.media.height,
+      position: link.position,
+    }))
   const available = product.hasVariants
     ? variants.some((variant) => variant.stockOnHand > 0)
     : product.stockOnHand > 0
   return {
     ...productFields,
     categoryIds,
+    // Public URLs are verified provider outputs, never arbitrary client URLs.
+    gallery,
+    images: gallery,
+    image: gallery[0]?.src ?? null,
     price: money(product.priceMinor),
     ...(product.compareAtMinor === null
       ? {}

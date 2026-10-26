@@ -49,6 +49,11 @@ function baseEnv() {
     CORS_ORIGINS: 'http://localhost:3000,http://localhost:3001',
     SWAGGER_ENABLED: 'true',
     JWT_ACCESS_SECRET: randomBytes(48).toString('hex'),
+    // Never let API tests call a developer/client Cloudinary account.
+    MEDIA_CLOUD_NAME: '',
+    MEDIA_API_KEY: '',
+    MEDIA_API_SECRET: '',
+    MEDIA_NAMESPACE: 'projects/kookaburra/products',
   }
 }
 

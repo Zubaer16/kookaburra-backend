@@ -49,6 +49,23 @@ export class CatalogProductResponseDto {
     type: [Object],
   })
   variants!: object[]
+  @ApiProperty({
+    type: String,
+    nullable: true,
+    description: 'Cover image URL; null when no gallery image',
+  })
+  image!: string | null
+  @ApiProperty({
+    type: [Object],
+    description:
+      'Verified public image URLs, ordered by position; src/alt for Storefront',
+  })
+  gallery!: object[]
+  @ApiProperty({
+    type: [Object],
+    description: 'Alias of gallery; id/url/alt for Admin integration',
+  })
+  images!: object[]
   @ApiProperty({ example: 'Just in' }) badge!: string
   @ApiPropertyOptional({ enum: ['new', 'popular', 'sale'], nullable: true })
   tag?: string | null

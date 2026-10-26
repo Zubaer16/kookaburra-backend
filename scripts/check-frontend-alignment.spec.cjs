@@ -48,7 +48,7 @@ test('cross-repo audit reports actual baseline without claiming runtime integrat
   )
   assert.equal(
     result.results.find((item) => item.id === 'product-media')?.status,
-    'PLANNED',
+    'ADAPTER',
   )
 })
 

@@ -22,6 +22,20 @@ import {
 const productIncludes = {
   variants: true,
   categories: { include: { category: true } },
+  media: {
+    orderBy: { position: 'asc' as const },
+    include: {
+      media: {
+        select: {
+          id: true,
+          status: true,
+          publicUrl: true,
+          width: true,
+          height: true,
+        },
+      },
+    },
+  },
 } as const
 const clean = (value: string): string => value.trim()
 const requireText = (value: string, field: string): string => {
@@ -425,11 +439,54 @@ export class CatalogService {
           },
           include: productIncludes,
         })
+        if (input.status === 'ARCHIVED') await this.detachArchivedMedia(tx, id)
         await this.audit(tx, actorId, 'product.updated', 'product', id)
-        return presentCatalogProduct(product)
+        return presentCatalogProduct(
+          input.status === 'ARCHIVED' ? { ...product, media: [] } : product,
+        )
       })
     } catch (err) {
       return translateDbError(err)
+    }
+  }
+
+  /** Same cleanup for DELETE archive and PATCH status=ARCHIVED. */
+  private async detachArchivedMedia(tx: Prisma.TransactionClient, id: string) {
+    // Archiving removes the product from public view and detaches its
+    // images. Queue unreferenced images for durable deletion after the
+    // seven-day recovery window; shared media remain untouched.
+    const refs = await tx.productMedia.findMany({
+      where: { productId: id },
+      select: { mediaId: true },
+    })
+    const mediaIds = [...new Set(refs.map((link) => link.mediaId))].sort()
+    for (const mediaId of mediaIds)
+      await tx.$queryRaw`SELECT id FROM media_assets WHERE id = ${mediaId}::uuid FOR UPDATE`
+    await tx.productMedia.deleteMany({ where: { productId: id } })
+    for (const mediaId of mediaIds) {
+      if (await tx.productMedia.count({ where: { mediaId } })) continue
+      const asset = await tx.mediaAsset.findUnique({ where: { id: mediaId } })
+      if (asset?.status === 'ACTIVE') {
+        await tx.mediaAsset.update({
+          where: { id: mediaId },
+          data: { status: 'PENDING_DELETE' },
+        })
+        await tx.mediaDeletionJob.upsert({
+          where: { mediaId },
+          create: {
+            mediaId,
+            status: 'PENDING',
+            availableAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+          },
+          update: {
+            status: 'PENDING',
+            availableAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+            attempts: 0,
+            claimedAt: null,
+            lastError: null,
+          },
+        })
+      }
     }
   }
 
@@ -442,8 +499,9 @@ export class CatalogService {
           data: { status: 'ARCHIVED' },
           include: productIncludes,
         })
+        await this.detachArchivedMedia(tx, id)
         await this.audit(tx, actorId, 'product.archived', 'product', id)
-        return presentCatalogProduct(product)
+        return presentCatalogProduct({ ...product, media: [] })
       })
     } catch (err) {
       return translateDbError(err)

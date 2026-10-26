@@ -5,6 +5,10 @@ export type Environment = {
   SWAGGER_ENABLED: boolean
   DATABASE_URL: string
   JWT_ACCESS_SECRET: string
+  MEDIA_CLOUD_NAME: string
+  MEDIA_API_KEY: string
+  MEDIA_API_SECRET: string
+  MEDIA_NAMESPACE: string
 }
 
 /** Validate deployment config without disclosing secrets in thrown errors. */
@@ -76,7 +80,32 @@ export function validateEnvironment(raw: Record<string, unknown>): Environment {
   if (mode === 'production' && !db) {
     throw new Error('Production requires DATABASE_URL')
   }
+  const cloudName = String(raw.MEDIA_CLOUD_NAME ?? '').trim()
+  const apiKey = String(raw.MEDIA_API_KEY ?? '').trim()
+  const apiSecret = String(raw.MEDIA_API_SECRET ?? '').trim()
+  const namespace = String(
+    raw.MEDIA_NAMESPACE ?? 'projects/kookaburra/products',
+  ).trim()
+  if (
+    (cloudName || apiKey || apiSecret) &&
+    !(cloudName && apiKey && apiSecret)
+  ) {
+    throw new Error('Media Cloudinary credentials must be configured together')
+  }
+  if (cloudName && !/^[a-zA-Z0-9_-]{1,80}$/.test(cloudName))
+    throw new Error('Invalid Cloudinary cloud name')
+  if (apiKey && !/^[0-9]{4,40}$/.test(apiKey))
+    throw new Error('Invalid Cloudinary API key')
+  if (
+    !/^[a-zA-Z0-9_-]+(?:\/[a-zA-Z0-9_-]+)*$/.test(namespace) ||
+    namespace.length > 160
+  )
+    throw new Error('Invalid media namespace')
   return {
+    MEDIA_CLOUD_NAME: cloudName,
+    MEDIA_API_KEY: apiKey,
+    MEDIA_API_SECRET: apiSecret,
+    MEDIA_NAMESPACE: namespace,
     NODE_ENV: mode,
     PORT: port,
     CORS_ORIGINS: origins.join(','),

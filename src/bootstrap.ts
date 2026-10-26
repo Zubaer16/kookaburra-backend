@@ -81,6 +81,10 @@ export async function createHttpApp(): Promise<INestApplication> {
         'SKU stock ledger, adjustments and thresholds',
       )
       .addTag(
+        'Media / Admin',
+        'Verified image uploads, product galleries and safe deletion',
+      )
+      .addTag(
         'Workspace / Admin',
         'JWT-only staff workspace roles and persistent permission grants',
       )

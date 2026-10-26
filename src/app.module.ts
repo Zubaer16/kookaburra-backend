@@ -6,6 +6,7 @@ import { DatabaseModule } from './database/database.module'
 import { AuthModule } from './auth/auth.module'
 import { CatalogModule } from './catalog/catalog.module'
 import { InventoryModule } from './inventory/inventory.module'
+import { MediaModule } from './media/media.module'
 
 @Module({
   imports: [
@@ -15,6 +16,7 @@ import { InventoryModule } from './inventory/inventory.module'
     AuthModule,
     CatalogModule,
     InventoryModule,
+    MediaModule,
   ],
 })
 export class AppModule {}

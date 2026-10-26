@@ -117,6 +117,7 @@ model Product {
   variants       ProductVariant[]
   inventoryBalance InventoryBalance?
   categories     ProductCategory[]
+  media          ProductMedia[]
   createdAt      DateTime       @default(now()) @map("created_at")
   updatedAt      DateTime       @updatedAt @map("updated_at")
 
@@ -251,4 +252,72 @@ model StaffRoleAssignment {
 
   @@index([roleKey])
   @@map("staff_role_assignments")
+}
+
+// Phase 03C: media metadata, non-public provider identities and shared references.
+enum MediaAssetStatus {
+  PENDING_UPLOAD
+  ACTIVE
+  PENDING_DELETE
+  DELETED
+  DELETE_FAILED
+}
+
+enum MediaDeletionStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+model MediaAsset {
+  id                 String            @id @default(uuid()) @db.Uuid
+  provider           String            @db.VarChar(40)
+  namespace          String            @db.VarChar(160)
+  objectKey          String            @unique @map("object_key") @db.VarChar(500)
+  providerAssetId    String?           @map("provider_asset_id") @db.VarChar(200)
+  mimeType           String            @map("mime_type") @db.VarChar(80)
+  bytes              Int               @default(0)
+  width              Int               @default(0)
+  height             Int               @default(0)
+  publicUrl          String?           @map("public_url") @db.Text
+  status             MediaAssetStatus  @default(PENDING_UPLOAD)
+  uploadExpiresAt    DateTime          @map("upload_expires_at")
+  createdAt          DateTime          @default(now()) @map("created_at")
+  updatedAt          DateTime          @updatedAt @map("updated_at")
+  productLinks       ProductMedia[]
+  deletionJob        MediaDeletionJob?
+
+  @@index([status, uploadExpiresAt])
+  @@map("media_assets")
+}
+
+model ProductMedia {
+  productId String      @map("product_id") @db.Uuid
+  mediaId   String      @map("media_id") @db.Uuid
+  position  Int         @default(0)
+  altText   String      @default("") @map("alt_text") @db.VarChar(250)
+  product   Product     @relation(fields: [productId], references: [id], onDelete: Cascade)
+  media     MediaAsset  @relation(fields: [mediaId], references: [id], onDelete: Restrict)
+
+  @@id([productId, mediaId])
+  @@index([mediaId])
+  @@map("product_media")
+}
+
+model MediaDeletionJob {
+  id          String              @id @default(uuid()) @db.Uuid
+  mediaId     String              @unique @map("media_id") @db.Uuid
+  media       MediaAsset          @relation(fields: [mediaId], references: [id], onDelete: Cascade)
+  status      MediaDeletionStatus @default(PENDING)
+  attempts    Int                 @default(0)
+  availableAt DateTime            @map("available_at")
+  claimedAt   DateTime?           @map("claimed_at")
+  lastError   String?             @map("last_error") @db.VarChar(250)
+  createdAt   DateTime            @default(now()) @map("created_at")
+  updatedAt   DateTime            @updatedAt @map("updated_at")
+
+  @@index([status, availableAt])
+  @@map("media_deletion_jobs")
 }

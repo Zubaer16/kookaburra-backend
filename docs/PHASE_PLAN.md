@@ -20,9 +20,11 @@
 
 ## Phase 03 — Catalog, inventory, media
 
-- [ ] Catalog CRUD/read; SKU-level atomic inventory.
-- [ ] Cloudinary/S3/VPS media adapters, project namespace isolation.
-- [ ] Responsive renditions, safe shared-reference delete, retry/reconciliation.
+- [x] Catalog CRUD/read; SKU-level atomic inventory (earlier user-validated phases).
+- [x] Phase 03C-1 Cloudinary direct-signed upload/verification and provider interface; namespace isolation (requires Windows/local test + real Cloudinary verification).
+- [ ] S3/R2/VPS media adapters and provider switching tests.
+- [x] DB-backed ordered galleries, reference-aware archive/replace, 7-day deletion jobs, retry/recovery worker (implementation pending local E2E validation).
+- [ ] Provider-specific rendition processing, operational cron/worker deployment verification and CDN cache purge timing acceptance.
 
 ## Phase 04 — Checkout, payment, orders
 

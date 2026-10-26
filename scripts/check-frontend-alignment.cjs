@@ -42,6 +42,14 @@ function evaluate(roots) {
     ),
     backendInventoryDto: read(roots.backend, 'src/inventory/inventory.dto.ts'),
     backendSchema: read(roots.backend, 'prisma/schema.prisma'),
+    backendMediaController: read(
+      roots.backend,
+      'src/media/media.controller.ts',
+    ),
+    backendCatalogPresentation: read(
+      roots.backend,
+      'src/catalog/catalog.presentation.ts',
+    ),
     adminTypes: read(roots.admin, 'lib/types.ts'),
     adminStore: read(roots.admin, 'lib/store.ts'),
     adminPermissions: read(roots.admin, 'lib/workspace-policy.ts'),
@@ -121,7 +129,9 @@ function evaluate(roots) {
     'product-media':
       /images:/.test(source.storefrontContracts) &&
       /images\?: ProductMedia\[\]/.test(source.adminTypes) &&
-      !/model MediaAsset\s*\{/.test(source.backendSchema),
+      /model MediaAsset\s*\{/.test(source.backendSchema) &&
+      /@Put\('products\/:id\/media'\)/.test(source.backendMediaController) &&
+      /gallery/.test(source.backendCatalogPresentation),
     'commerce-future':
       /ApiCheckoutQuote/.test(source.storefrontContracts) &&
       !fs.existsSync(

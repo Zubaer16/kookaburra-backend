@@ -49,4 +49,53 @@ describe('A2 API read projection (additive; no checkout authority)', () => {
       pages: 5,
     })
   })
+  it('returns an ordered verified gallery while withholding pending and deleted images', () => {
+    const product = sample()
+    const result = presentCatalogProduct({
+      ...product,
+      media: [
+        {
+          mediaId: 'unverified',
+          altText: 'hidden',
+          position: 0,
+          media: {
+            id: 'unverified',
+            status: 'PENDING_UPLOAD',
+            publicUrl: 'https://example.com/unsafe',
+            width: 1,
+            height: 1,
+          },
+        },
+        {
+          mediaId: 'second',
+          altText: 'Back',
+          position: 1,
+          media: {
+            id: 'second',
+            status: 'ACTIVE',
+            publicUrl: 'https://res.cloudinary.com/demo/image/upload/back.jpg',
+            width: 400,
+            height: 300,
+          },
+        },
+        {
+          mediaId: 'first',
+          altText: 'Front',
+          position: 0,
+          media: {
+            id: 'first',
+            status: 'ACTIVE',
+            publicUrl: 'https://res.cloudinary.com/demo/image/upload/front.jpg',
+            width: 400,
+            height: 300,
+          },
+        },
+      ],
+    })
+    expect(result.image).toContain('front.jpg')
+    expect(result.gallery.map((x) => x.id)).toEqual(['first', 'second'])
+    expect(result.images).toEqual(result.gallery)
+    expect(result.gallery[0]?.alt).toBe('Front')
+    expect(result).not.toHaveProperty('providerAssetId')
+  })
 })

@@ -28,6 +28,7 @@
     "test:api:visual:all": "npm run build && node scripts/run-api-tests.cjs visual-db",
     "test:api:visual:report": "node scripts/run-api-tests.cjs visual-report",
     "test:api:security": "npm run build && node scripts/run-api-tests.cjs security",
+    "media:cleanup": "npm run build && node -r dotenv/config dist/tools/media-cleanup.js",
     "cleanup:visual-dev:preview": "node scripts/cleanup-visual-dev-fixtures.cjs",
     "cleanup:visual-dev:apply": "node scripts/cleanup-visual-dev-fixtures.cjs --apply",
     "alignment:audit": "node scripts/check-frontend-alignment.cjs",

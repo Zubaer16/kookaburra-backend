@@ -28,6 +28,7 @@ test.describe('System & OpenAPI', () => {
       'Catalog / Storefront',
       'Catalog / Admin',
       'Inventory / Admin',
+      'Media / Admin',
       'Workspace / Admin',
     ])
     for (const endpoint of [
