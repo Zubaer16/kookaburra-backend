@@ -76,12 +76,17 @@ export class MediaAssetPublicDto {
 }
 export class MediaUploadInstructionDto {
   @ApiProperty({ format: 'uuid' }) mediaId!: string
-  @ApiProperty({ description: 'Direct-to-Cloudinary upload URL' })
+  @ApiProperty({
+    description:
+      'Provider-specific direct upload URL. Cloudinary: multipart POST; S3/R2: signed PUT.',
+  })
   uploadUrl!: string
   @ApiProperty({
     description: 'Signed form fields (never includes API secret)',
     type: Object,
   })
   fields!: Record<string, string | number | boolean>
+  @ApiProperty({ enum: ['POST', 'PUT'] }) method!: 'POST' | 'PUT'
+  @ApiProperty({ type: Object }) headers!: Record<string, string>
   @ApiProperty() expiresAt!: string
 }

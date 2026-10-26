@@ -27,6 +27,9 @@ test('03C OpenAPI documents media/gallery JWT-only operations', async ({
   }
   expect(doc.components.schemas).toHaveProperty('StartMediaUploadDto')
   expect(doc.components.schemas).toHaveProperty('ReplaceProductGalleryDto')
+  const upload = doc.components.schemas.MediaUploadInstructionDto.properties
+  expect(upload).toHaveProperty('method')
+  expect(upload).toHaveProperty('headers')
   const products = doc.components.schemas.CatalogProductResponseDto.properties
   for (const field of ['image', 'gallery', 'images'])
     expect(products).toHaveProperty(field)

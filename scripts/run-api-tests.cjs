@@ -54,6 +54,13 @@ function baseEnv() {
     MEDIA_API_KEY: '',
     MEDIA_API_SECRET: '',
     MEDIA_NAMESPACE: 'projects/kookaburra/products',
+    MEDIA_PROVIDER: 'cloudinary',
+    MEDIA_S3_ENDPOINT: '',
+    MEDIA_S3_BUCKET: '',
+    MEDIA_S3_REGION: '',
+    MEDIA_S3_ACCESS_KEY_ID: '',
+    MEDIA_S3_SECRET_ACCESS_KEY: '',
+    MEDIA_S3_PUBLIC_BASE_URL: '',
   }
 }
 

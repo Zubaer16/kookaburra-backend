@@ -152,3 +152,59 @@ test('03C gallery ordering, shared references, detachment and durable cleanup jo
     await f.close()
   }
 })
+
+test('03C-2A provider switching: gallery accepts stored S3 asset and schedules safe deletion without rewriting provider', async ({ request }) => {
+  const fixture = new CatalogTestFixture(request)
+  const mediaId = randomUUID()
+  try {
+    const owner = await fixture.account('OWNER')
+    const headers = bearer(owner.token)
+    const category = await request.post('/v1/admin/categories', {
+      headers, data: { name: 'Mixed Providers', slug: fixture.slug('provider-category') },
+    })
+    expect(category.status()).toBe(201)
+    const product = await request.post('/v1/admin/products', {
+      headers,
+      data: {
+        title: 'Provider Migration Product', slug: fixture.slug('provider-product'),
+        sku: fixture.sku('provider-product'), priceMinor: 2500,
+        status: 'ACTIVE', categoryIds: [(await category.json()).id],
+      },
+    })
+    expect(product.status()).toBe(201)
+    const productId = (await product.json()).id as string
+    const namespace = 'projects/kookaburra/products'
+    await fixture.db.mediaAsset.create({
+      data: {
+        id: mediaId, provider: 's3', namespace,
+        objectKey: `${namespace}/${mediaId}`,
+        providerAssetId: 'placeholder-sha256-for-isolated-fixture',
+        mimeType: 'image/png', bytes: 2048, width: 640, height: 480,
+        publicUrl: `https://cdn.example.test/${namespace}/${mediaId}`,
+        status: 'ACTIVE', uploadExpiresAt: new Date(Date.now() + 3600000),
+      },
+    })
+    const attached = await request.put(`/v1/admin/products/${productId}/media`, {
+      headers, data: { items: [{ mediaId, position: 0, altText: 'S3 cover' }] },
+    })
+    expect(attached.status()).toBe(200)
+    const catalog = await request.get(`/v1/products/${fixture.slug('provider-product')}`)
+    expect(catalog.status()).toBe(200)
+    const body = await catalog.json()
+    expect(body.image).toContain('cdn.example.test')
+    expect(JSON.stringify(body)).not.toContain('placeholder-sha256')
+    const detached = await request.put(`/v1/admin/products/${productId}/media`, {
+      headers, data: { items: [] },
+    })
+    expect(detached.status()).toBe(200)
+    const stored = await fixture.db.mediaAsset.findUniqueOrThrow({ where: { id: mediaId } })
+    expect(stored.provider).toBe('s3')
+    expect(stored.status).toBe('PENDING_DELETE')
+    expect(await fixture.db.mediaDeletionJob.count({ where: { mediaId, status: 'PENDING' } })).toBe(1)
+  } finally {
+    await fixture.db.productMedia.deleteMany({ where: { mediaId } })
+    await fixture.db.mediaDeletionJob.deleteMany({ where: { mediaId } })
+    await fixture.db.mediaAsset.deleteMany({ where: { id: mediaId } })
+    await fixture.close()
+  }
+})

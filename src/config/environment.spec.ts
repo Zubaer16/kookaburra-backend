@@ -47,6 +47,23 @@ describe('environment configuration', () => {
       ).toThrow()
     }
   })
+  it('validates optional S3/R2 configuration and avoids provider ambiguity', () => {
+    const setup = {
+      MEDIA_PROVIDER: 's3',
+      MEDIA_S3_ENDPOINT: 'https://s3.us-east-1.amazonaws.com',
+      MEDIA_S3_BUCKET: 'sample-assets',
+      MEDIA_S3_REGION: 'us-east-1',
+      MEDIA_S3_ACCESS_KEY_ID: 'EXAMPLE12345',
+      MEDIA_S3_SECRET_ACCESS_KEY: 'this-is-not-a-real-secret',
+      MEDIA_S3_PUBLIC_BASE_URL: 'https://cdn.example.test',
+    }
+    expect(validateEnvironment(setup).MEDIA_PROVIDER).toBe('s3')
+    expect(() => validateEnvironment({ MEDIA_PROVIDER: 'untrusted' })).toThrow()
+    expect(() => validateEnvironment({ MEDIA_PROVIDER: 's3' })).toThrow()
+    expect(() => validateEnvironment({ ...setup, MEDIA_S3_ENDPOINT: 'http://127.0.0.1:9000' })).toThrow()
+    expect(() => validateEnvironment({ ...setup, MEDIA_S3_PUBLIC_BASE_URL: 'https://cdn.example.test/path?redirect=x' })).toThrow()
+    expect(validateEnvironment({}).MEDIA_PROVIDER).toBe('cloudinary')
+  })
   it('rejects invalid ports and malformed docs flag', () => {
     expect(() => validateEnvironment({ PORT: '-4' })).toThrow()
     expect(() =>

@@ -9,6 +9,13 @@ export type Environment = {
   MEDIA_API_KEY: string
   MEDIA_API_SECRET: string
   MEDIA_NAMESPACE: string
+  MEDIA_PROVIDER: 'cloudinary' | 's3'
+  MEDIA_S3_ENDPOINT: string
+  MEDIA_S3_BUCKET: string
+  MEDIA_S3_REGION: string
+  MEDIA_S3_ACCESS_KEY_ID: string
+  MEDIA_S3_SECRET_ACCESS_KEY: string
+  MEDIA_S3_PUBLIC_BASE_URL: string
 }
 
 /** Validate deployment config without disclosing secrets in thrown errors. */
@@ -101,7 +108,44 @@ export function validateEnvironment(raw: Record<string, unknown>): Environment {
     namespace.length > 160
   )
     throw new Error('Invalid media namespace')
+  const provider = String(raw.MEDIA_PROVIDER ?? 'cloudinary')
+  if (provider !== 'cloudinary' && provider !== 's3')
+    throw new Error('MEDIA_PROVIDER must be cloudinary or s3')
+  const s3Endpoint = String(raw.MEDIA_S3_ENDPOINT ?? '').trim()
+  const s3Bucket = String(raw.MEDIA_S3_BUCKET ?? '').trim()
+  const s3Region = String(raw.MEDIA_S3_REGION ?? '').trim()
+  const s3AccessKey = String(raw.MEDIA_S3_ACCESS_KEY_ID ?? '').trim()
+  const s3Secret = String(raw.MEDIA_S3_SECRET_ACCESS_KEY ?? '').trim()
+  const s3PublicBase = String(raw.MEDIA_S3_PUBLIC_BASE_URL ?? '').trim()
+  const allS3 = [s3Endpoint, s3Bucket, s3Region, s3AccessKey, s3Secret, s3PublicBase]
+  if (allS3.some(Boolean) && !allS3.every(Boolean))
+    throw new Error('S3 media configuration requires all six variables')
+  if (provider === 's3' && !allS3.every(Boolean))
+    throw new Error('Selected S3 media provider must be configured')
+  if (s3Endpoint) {
+    const endpoint = new URL(s3Endpoint)
+    const cdn = new URL(s3PublicBase)
+    if (
+      endpoint.protocol !== 'https:' ||
+      endpoint.origin !== s3Endpoint ||
+      endpoint.username || endpoint.password ||
+      !['https:'].includes(cdn.protocol) ||
+      !!cdn.username || !!cdn.password || !!cdn.search || !!cdn.hash ||
+      s3PublicBase.endsWith('/') || s3PublicBase.includes('..') ||
+      !/^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$/.test(s3Bucket) ||
+      !/^(?:[a-z0-9-]{2,40}|auto)$/.test(s3Region) ||
+      !/^[a-zA-Z0-9_-]{4,128}$/.test(s3AccessKey) ||
+      s3Secret.length < 16
+    ) throw new Error('Invalid S3 media configuration')
+  }
   return {
+    MEDIA_PROVIDER: provider,
+    MEDIA_S3_ENDPOINT: s3Endpoint,
+    MEDIA_S3_BUCKET: s3Bucket,
+    MEDIA_S3_REGION: s3Region,
+    MEDIA_S3_ACCESS_KEY_ID: s3AccessKey,
+    MEDIA_S3_SECRET_ACCESS_KEY: s3Secret,
+    MEDIA_S3_PUBLIC_BASE_URL: s3PublicBase,
     MEDIA_CLOUD_NAME: cloudName,
     MEDIA_API_KEY: apiKey,
     MEDIA_API_SECRET: apiSecret,

@@ -38,7 +38,7 @@ export class MediaController {
   @Post('media/uploads')
   @ApiOperation({
     summary:
-      'Create short-lived Cloudinary signed upload instruction; upload bytes directly to provider',
+      'Create signed direct upload instruction for configured provider (Cloudinary POST or S3/R2 PUT)',
   })
   @ApiCreatedResponse({ type: MediaUploadInstructionDto })
   start(

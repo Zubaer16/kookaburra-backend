@@ -76,7 +76,7 @@ test('03C Media Bearer RBAC, validation and untrusted identifiers', async ({
       headers,
       data: { mimeType: 'image/png', bytes: 100 },
     })
-    expect(unavailable.status()).toBe(503) // test environment has no Cloudinary secrets
+    expect(unavailable.status()).toBe(503) // API tests disable all external storage credentials
   } finally {
     await f.close()
   }

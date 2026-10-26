@@ -1,8 +1,8 @@
 {
-  "version": "1.3.0",
+  "version": "1.4.0",
   "purpose": "Source-backed pre-integration contract baseline, NOT proof of runtime integration",
   "sourceBaselines": {
-    "backend": "kookaburra-backend-full-20261026-111702.zip + Phase 03C media/gallery",
+    "backend": "kookaburra-backend-full-20261026-122027.zip + Phase 03C-2A S3/R2 adapter",
     "admin": "kookaburra-admin-full-20261025-181323.zip",
     "storefront": "kookaburra-storefront-full-20261020-101939.zip"
   },
@@ -14,7 +14,7 @@
     "availability": "Display hint only, authoritative stock validated by checkout backend",
     "auth": "Bearer JWT-only; frontend must send Authorization header and manage token lifecycle; no cookie session/BFF is mandated.",
     "status": "Explicit map ACTIVE/DRAFT/ARCHIVED; never silently map ARCHIVED to Draft",
-    "media": "Provider-tracked media IDs, verified image URLs, ordered gallery, shared references and delayed cleanup; only Cloudinary adapter active in 03C-1",
+    "media": "Provider-tracked media IDs and ordered gallery; Cloudinary and S3/R2 signer/verify/delete adapters supported; VPS/responsive renditions pending",
     "pagination": "Existing {items,total,page,limit,pages} needs a frontend adapter to ApiPage.pageSize or additive backend alias",
     "apiStability": "Keep /v1 and legacy endpoints stable; add new documented DTOs without breaking already-tested clients"
   },
@@ -94,7 +94,7 @@
       "priority": "P1",
       "status": "ADAPTER",
       "summary": "Backend media assets, verified URLs and ordered gallery APIs now implemented; Admin still needs signed-upload UI workflow and adapter",
-      "action": "Use canonical media IDs and URLs; do not migrate/demo-map images by URL. Additional S3/R2/VPS adapters follow Cloudinary-first rollout."
+      "action": "Use canonical media IDs/URLs and signed upload method/headers; Cloudinary POST and S3/R2 PUT supported. VPS and responsive output are later increments."
     },
     {
       "id": "commerce-future",

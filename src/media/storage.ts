@@ -19,10 +19,12 @@ export type VerifiedMedia = {
 export type UploadInstruction = {
   uploadUrl: string
   fields: Record<string, string | number | boolean>
+  method?: 'POST' | 'PUT'
+  headers?: Record<string, string>
 }
 export interface MediaStorageProvider {
   readonly key: string
-  signedUpload(objectKey: string): UploadInstruction
+  signedUpload(objectKey: string, mimeType?: string): UploadInstruction
   verify(objectKey: string): Promise<VerifiedMedia>
   delete(objectKey: string): Promise<void>
 }
@@ -59,7 +61,7 @@ export class CloudinaryMediaProvider implements MediaStorageProvider {
       .update(payload + this.apiSecret)
       .digest('hex')
   }
-  signedUpload(objectKey: string): UploadInstruction {
+  signedUpload(objectKey: string, _mimeType?: string): UploadInstruction {
     this.configured()
     const values = {
       public_id: objectKey,
@@ -68,6 +70,8 @@ export class CloudinaryMediaProvider implements MediaStorageProvider {
       unique_filename: false,
     }
     return {
+      method: 'POST',
+      headers: {},
       uploadUrl: `https://api.cloudinary.com/v1_1/${this.cloud}/image/upload`,
       fields: {
         ...values,

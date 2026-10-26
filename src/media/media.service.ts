@@ -9,7 +9,7 @@ import { ConfigService } from '@nestjs/config'
 import { DatabaseService } from '../database/database.service'
 import { Environment } from '../config/environment'
 import { Prisma } from '../generated/prisma/client'
-import { CloudinaryMediaProvider } from './storage'
+import { MediaStorageRegistry } from './storage.registry'
 import { ReplaceProductGalleryDto, StartMediaUploadDto } from './media.dto'
 
 const RETENTION_MS = 7 * 24 * 60 * 60 * 1000
@@ -36,7 +36,7 @@ export class MediaService {
   constructor(
     private readonly db: DatabaseService,
     private readonly config: ConfigService<Environment, true>,
-    private readonly storage: CloudinaryMediaProvider,
+    private readonly storage: MediaStorageRegistry,
   ) {}
 
   async createUpload(input: StartMediaUploadDto, actorId: string) {
@@ -44,13 +44,14 @@ export class MediaService {
     const namespace = this.config.get('MEDIA_NAMESPACE', { infer: true })
     const objectKey = `${namespace}/${id}`
     // Check provider is configured before creating a pending row.
-    const instruction = this.storage.signedUpload(objectKey)
+    const provider = this.storage.current
+    const instruction = provider.signedUpload(objectKey, input.mimeType)
     const expiresAt = new Date(Date.now() + UPLOAD_TTL_MS)
     await this.db.client.$transaction(async (tx) => {
       await tx.mediaAsset.create({
         data: {
           id,
-          provider: this.storage.key,
+          provider: provider.key,
           namespace,
           objectKey,
           mimeType: input.mimeType,
@@ -77,12 +78,11 @@ export class MediaService {
     if (asset.status !== 'PENDING_UPLOAD' || asset.uploadExpiresAt < new Date())
       throw new ConflictException('Upload expired or no longer pending')
     if (
-      asset.provider !== this.storage.key ||
       asset.namespace !== this.config.get('MEDIA_NAMESPACE', { infer: true }) ||
       !asset.objectKey.startsWith(`${asset.namespace}/`)
     )
       throw new ConflictException('Wrong storage namespace')
-    const verified = await this.storage.verify(asset.objectKey)
+    const verified = await this.storage.forKey(asset.provider).verify(asset.objectKey)
     if (verified.mimeType !== asset.mimeType || verified.bytes > asset.bytes)
       throw new ConflictException(
         'Uploaded image differs from approved type/size',
@@ -335,7 +335,6 @@ export class MediaService {
         if (
           asset.namespace !==
             this.config.get('MEDIA_NAMESPACE', { infer: true }) ||
-          asset.provider !== this.storage.key ||
           !asset.objectKey.startsWith(`${asset.namespace}/`)
         )
           throw new ConflictException('Wrong storage namespace')
@@ -438,12 +437,11 @@ export class MediaService {
       try {
         const namespace = this.config.get('MEDIA_NAMESPACE', { infer: true })
         if (
-          claimed.provider !== this.storage.key ||
           claimed.namespace !== namespace ||
           !claimed.objectKey.startsWith(`${namespace}/`)
         )
           throw new ConflictException('Media provider or namespace mismatch')
-        await this.storage.delete(claimed.objectKey)
+        await this.storage.forKey(claimed.provider).delete(claimed.objectKey)
         await this.db.client.$transaction(async (tx) => {
           await tx.mediaAsset.update({
             where: { id: claimed.id },
