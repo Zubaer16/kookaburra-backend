@@ -84,6 +84,10 @@ model Category {
   slug        String       @unique @db.VarChar(160)
   name        String       @db.VarChar(200)
   description String       @default("") @db.Text
+  // Frontend navigation metadata; active hides category from navigation, not products.
+  color       String       @default("#EAF0FF") @db.VarChar(7)
+  sortOrder   Int          @default(0) @map("sort_order")
+  active      Boolean      @default(true)
   parentId    String?      @map("parent_id") @db.Uuid
   parent      Category?    @relation("CategoryTree", fields: [parentId], references: [id], onDelete: Restrict)
   children    Category[]   @relation("CategoryTree")
@@ -101,6 +105,8 @@ model Product {
   title          String         @db.VarChar(250)
   sku            String?        @unique @db.VarChar(120)
   description    String         @default("") @db.Text
+  badge          String         @default("") @db.VarChar(80)
+  tag            String?        @db.VarChar(16)
   status         ProductStatus  @default(DRAFT)
   currency       String         @default("USD") @db.VarChar(3)
   priceMinor     Int            @map("price_minor")

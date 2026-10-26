@@ -91,13 +91,17 @@ function evaluate(roots) {
       /options: Record<string, string>/.test(source.storefrontContracts),
     'category-shape':
       /parentId/.test(source.backendSchema) &&
-      /parentId: string \| null/.test(source.storefrontContracts),
+      /parentId: string \| null/.test(source.storefrontContracts) &&
+      /sortOrder/.test(source.backendSchema) &&
+      /active/.test(source.backendSchema),
     'inventory-identity':
       /@Controller\('admin\/inventory'\)/.test(
         source.backendInventoryController,
       ) &&
       /requestId!: string/.test(source.backendInventoryDto) &&
-      /adjustStock:\s*\(/.test(source.adminStore),
+      /adjustStock:\s*\(/.test(source.adminStore) &&
+      /productId\?: string/.test(source.backendInventoryDto) &&
+      /variantId\?: string/.test(source.backendInventoryDto),
     'catalog-stock-guard':
       /OmitType\(CreateProductDto, \['stockOnHand', 'variants'\]/.test(
         source.backendCatalogDto,
@@ -128,7 +132,7 @@ function evaluate(roots) {
       /ARCHIVED/.test(source.backendCatalogDto),
     'page-shape':
       /pageSize: number/.test(source.storefrontContracts) &&
-      /return \{ items, total, page, limit, pages:/.test(
+      /presentPage\(items\.map\(presentCatalogProduct\)/.test(
         source.backendCatalogService,
       ),
     'fixture-protection':

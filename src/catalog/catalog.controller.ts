@@ -11,12 +11,22 @@ import {
   Req,
   UseGuards,
 } from '@nestjs/common'
-import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger'
+import {
+  ApiBearerAuth,
+  ApiOkResponse,
+  ApiOperation,
+  ApiTags,
+} from '@nestjs/swagger'
 import { AccessGuard } from '../auth/access.guard'
 import { AdminGuard } from '../auth/admin.guard'
 import { AuthenticatedRequest } from '../auth/auth.types'
 import { CatalogService } from './catalog.service'
 import { CatalogWriteGuard } from './catalog.write.guard'
+import {
+  CatalogCategoryResponseDto,
+  CatalogProductResponseDto,
+  CatalogProductPageResponseDto,
+} from './catalog.response'
 import {
   CreateCategoryDto,
   CreateProductDto,
@@ -33,12 +43,17 @@ export class StorefrontCatalogController {
   constructor(private readonly catalog: CatalogService) {}
 
   @Get('categories')
+  @ApiOkResponse({
+    type: [CatalogCategoryResponseDto],
+    description: 'Active navigation categories ordered by sortOrder',
+  })
   @ApiOperation({ summary: 'List public category tree nodes' })
   listCategories() {
     return this.catalog.listCategories()
   }
 
   @Get('products')
+  @ApiOkResponse({ type: CatalogProductPageResponseDto })
   @ApiOperation({
     summary: 'Paginated ACTIVE products; optional search and category slug',
   })
@@ -47,6 +62,7 @@ export class StorefrontCatalogController {
   }
 
   @Get('products/:slug')
+  @ApiOkResponse({ type: CatalogProductResponseDto })
   @ApiOperation({ summary: 'Find an ACTIVE product by its canonical slug' })
   getProduct(@Param('slug') slug: string) {
     return this.catalog.getPublicProduct(slug)
@@ -61,8 +77,12 @@ export class AdminCatalogController {
   constructor(private readonly catalog: CatalogService) {}
 
   @Get('categories')
+  @ApiOkResponse({
+    type: [CatalogCategoryResponseDto],
+    description: 'All categories, including hidden navigation entries',
+  })
   listCategories() {
-    return this.catalog.listCategories()
+    return this.catalog.listCategories(true)
   }
 
   @Post('categories')
@@ -94,11 +114,13 @@ export class AdminCatalogController {
   }
 
   @Get('products')
+  @ApiOkResponse({ type: CatalogProductPageResponseDto })
   listProducts(@Query() query: ProductQueryDto) {
     return this.catalog.listProducts(query, true)
   }
 
   @Get('products/:id')
+  @ApiOkResponse({ type: CatalogProductResponseDto })
   getProduct(@Param('id', ParseUUIDPipe) id: string) {
     return this.catalog.getAdminProduct(id)
   }

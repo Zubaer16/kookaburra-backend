@@ -10,7 +10,12 @@ import {
   Req,
   UseGuards,
 } from '@nestjs/common'
-import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger'
+import {
+  ApiBearerAuth,
+  ApiOkResponse,
+  ApiOperation,
+  ApiTags,
+} from '@nestjs/swagger'
 import { AccessGuard } from '../auth/access.guard'
 import { AdminGuard } from '../auth/admin.guard'
 import { AuthenticatedRequest } from '../auth/auth.types'
@@ -31,7 +36,14 @@ export class InventoryController {
   constructor(private readonly inventory: InventoryService) {}
 
   @Get()
-  @ApiOperation({ summary: 'List active SKU stock balances; STAFF may read' })
+  @ApiOkResponse({
+    description:
+      'Returns canonical balance IDs, productId/variantId and pageSize alias for Admin inventory adapters',
+  })
+  @ApiOperation({
+    summary:
+      'List active SKU balances, optionally by productId or variantId; STAFF may read',
+  })
   list(@Query() query: InventoryQueryDto) {
     return this.inventory.list(query)
   }

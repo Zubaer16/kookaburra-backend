@@ -26,6 +26,20 @@ test('Watch Swagger execute health and protected endpoints safely', async ({
       { page: 0 },
     )
   })
+  await test.step('A2 inverted public price range is rejected before DB access', async () => {
+    await swaggerExecute(
+      page,
+      'GET',
+      '/v1/products',
+      400,
+      undefined,
+      {},
+      {
+        minPriceMinor: 3000,
+        maxPriceMinor: 1000,
+      },
+    )
+  })
   await test.step('Admin Catalog read without token: 401', async () => {
     await swaggerExecute(page, 'GET', '/v1/admin/products', 401)
   })

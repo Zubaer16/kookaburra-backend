@@ -37,6 +37,23 @@ export class InventoryQueryDto {
   @IsOptional()
   @IsIn(['true', 'false'])
   lowStock?: 'true' | 'false'
+
+  @ApiPropertyOptional({
+    format: 'uuid',
+    description:
+      'Lookup simple-product balance or variant balances of this product',
+  })
+  @IsOptional()
+  @IsUUID()
+  productId?: string
+
+  @ApiPropertyOptional({
+    format: 'uuid',
+    description: 'Lookup one variant balance, optionally with productId',
+  })
+  @IsOptional()
+  @IsUUID()
+  variantId?: string
 }
 
 export class MovementQueryDto {

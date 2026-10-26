@@ -72,33 +72,73 @@ export async function swaggerExecute(
       throw new Error(`Missing Swagger path param: ${key}`)
     return encodeURIComponent(String(pathParams[key]))
   })
-  const responseWait = page.waitForResponse((response) => {
+  // Wait only for a matching HTTP request, never for the entire test timeout.
+  // Swagger's form controls may reject an input before the browser sends any
+  // request; in that case fail with a useful diagnostic instead of hanging.
+  const observed: string[] = []
+  const observeResponse = (response: Response) => {
     try {
       const url = new URL(response.url())
-      return (
+      if (
         response.request().method() === method &&
-        decodeURIComponent(url.pathname) === decodeURIComponent(actualPath) &&
-        url.host === new URL(page.url()).host &&
-        Object.entries(queryParams).every(
+        decodeURIComponent(url.pathname) === decodeURIComponent(actualPath)
+      ) {
+        const queryMatches = Object.entries(queryParams).every(
           ([name, value]) => url.searchParams.get(name) === String(value),
         )
-      )
+        observed.push(
+          `${response.status()} ${method} ${url.pathname} (query matches: ${queryMatches})`,
+        )
+      }
     } catch {
-      return false
+      // Ignore unrelated non-HTTP browser resources.
     }
-  })
-  await operation.getByRole('button', { name: 'Execute', exact: true }).click()
-  const result = await responseWait
-  expect(result.status(), `${method} ${actualPath}`).toBe(expectedStatus)
-  const live = operation.locator('.live-responses-table')
-  await expect(live).toBeVisible()
-  await expect(
-    live.locator('tbody tr .response-col_status').first(),
-  ).toContainText(String(expectedStatus))
-  console.log(
-    `Swagger UI Execute: ${method} ${actualPath} -> ${expectedStatus}`,
-  )
-  return result
+  }
+  page.on('response', observeResponse)
+  try {
+    const [result] = await Promise.all([
+      page.waitForResponse(
+        (response) => {
+          try {
+            const url = new URL(response.url())
+            return (
+              response.request().method() === method &&
+              decodeURIComponent(url.pathname) ===
+                decodeURIComponent(actualPath) &&
+              url.host === new URL(page.url()).host &&
+              Object.entries(queryParams).every(
+                ([name, value]) => url.searchParams.get(name) === String(value),
+              )
+            )
+          } catch {
+            return false
+          }
+        },
+        { timeout: 25_000 },
+      ),
+      operation.getByRole('button', { name: 'Execute', exact: true }).click(),
+    ]).catch((error: unknown) => {
+      const details = observed.length
+        ? observed.join('; ')
+        : 'No matching-path HTTP response was observed. Swagger may have blocked the request at the form-validation layer.'
+      throw new Error(
+        `Swagger Execute failed: ${method} ${actualPath}; ${details}`,
+        { cause: error },
+      )
+    })
+    expect(result.status(), `${method} ${actualPath}`).toBe(expectedStatus)
+    const live = operation.locator('.live-responses-table')
+    await expect(live).toBeVisible()
+    await expect(
+      live.locator('tbody tr .response-col_status').first(),
+    ).toContainText(String(expectedStatus))
+    console.log(
+      `Swagger UI Execute: ${method} ${actualPath} -> ${expectedStatus}`,
+    )
+    return result
+  } finally {
+    page.off('response', observeResponse)
+  }
 }
 
 export async function openSwagger(page: Page): Promise<void> {

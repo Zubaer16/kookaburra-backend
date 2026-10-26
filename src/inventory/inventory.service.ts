@@ -66,6 +66,17 @@ export class InventoryService {
     const where: Prisma.InventoryBalanceWhereInput = {
       AND: [
         this.visible,
+        ...(query.productId
+          ? [
+              {
+                OR: [
+                  { productId: query.productId },
+                  { variant: { is: { productId: query.productId } } },
+                ],
+              },
+            ]
+          : []),
+        ...(query.variantId ? [{ variantId: query.variantId }] : []),
         ...(query.lowStock === 'true'
           ? [
               {
@@ -102,6 +113,7 @@ export class InventoryService {
       total,
       page,
       limit,
+      pageSize: limit,
       pages: Math.ceil(total / limit),
     }
   }
@@ -124,7 +136,14 @@ export class InventoryService {
       }),
       this.database.client.inventoryMovement.count({ where }),
     ])
-    return { items, total, page, limit, pages: Math.ceil(total / limit) }
+    return {
+      items,
+      total,
+      page,
+      limit,
+      pageSize: limit,
+      pages: Math.ceil(total / limit),
+    }
   }
 
   async threshold(id: string, input: SetLowStockThresholdDto, actorId: string) {

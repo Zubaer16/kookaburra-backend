@@ -7,6 +7,7 @@ import {
 } from '@nestjs/common'
 import { DatabaseService } from '../database/database.service'
 import { Prisma } from '../generated/prisma/client'
+import { presentCatalogProduct, presentPage } from './catalog.presentation'
 import {
   CreateCategoryDto,
   CreateProductDto,
@@ -65,9 +66,10 @@ const translateDbError = (err: unknown): never => {
 export class CatalogService {
   constructor(private readonly database: DatabaseService) {}
 
-  async listCategories() {
+  async listCategories(isAdmin = false) {
     return this.database.client.category.findMany({
-      orderBy: [{ name: 'asc' }, { id: 'asc' }],
+      where: isAdmin ? {} : { active: true },
+      orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }, { id: 'asc' }],
     })
   }
 
@@ -80,6 +82,9 @@ export class CatalogService {
             name: requireText(input.name, 'Category name'),
             slug: input.slug,
             description: clean(input.description ?? ''),
+            color: input.color ?? '#EAF0FF',
+            sortOrder: input.sortOrder ?? 0,
+            active: input.active ?? true,
             parentId: input.parentId || null,
           },
         })
@@ -127,6 +132,11 @@ export class CatalogService {
             ...(input.parentId !== undefined
               ? { parentId: input.parentId || null }
               : {}),
+            ...(input.color !== undefined ? { color: input.color } : {}),
+            ...(input.sortOrder !== undefined
+              ? { sortOrder: input.sortOrder }
+              : {}),
+            ...(input.active !== undefined ? { active: input.active } : {}),
           },
         })
         await this.audit(tx, actorId, 'category.updated', 'category', id)
@@ -161,6 +171,13 @@ export class CatalogService {
   async listProducts(query: ProductQueryDto, isAdmin: boolean) {
     const page = query.page ?? 1
     const limit = query.limit ?? 20
+    if (
+      query.minPriceMinor !== undefined &&
+      query.maxPriceMinor !== undefined &&
+      query.minPriceMinor > query.maxPriceMinor
+    ) {
+      throw new BadRequestException('minPriceMinor cannot exceed maxPriceMinor')
+    }
     const where: Prisma.ProductWhereInput = {
       ...(isAdmin
         ? query.status
@@ -178,18 +195,62 @@ export class CatalogService {
       ...(query.category
         ? { categories: { some: { category: { slug: query.category } } } }
         : {}),
+      ...(query.tag ? { tag: query.tag } : {}),
+      ...(query.minPriceMinor !== undefined || query.maxPriceMinor !== undefined
+        ? {
+            priceMinor: {
+              ...(query.minPriceMinor !== undefined
+                ? { gte: query.minPriceMinor }
+                : {}),
+              ...(query.maxPriceMinor !== undefined
+                ? { lte: query.maxPriceMinor }
+                : {}),
+            },
+          }
+        : {}),
+      ...(query.inStock === 'true'
+        ? {
+            OR: [
+              { hasVariants: false, stockOnHand: { gt: 0 } },
+              {
+                hasVariants: true,
+                variants: { some: { stockOnHand: { gt: 0 } } },
+              },
+            ],
+          }
+        : query.inStock === 'false'
+          ? {
+              AND: [
+                {
+                  OR: [
+                    { hasVariants: false, stockOnHand: 0 },
+                    {
+                      hasVariants: true,
+                      variants: { none: { stockOnHand: { gt: 0 } } },
+                    },
+                  ],
+                },
+              ],
+            }
+          : {}),
     }
+    const orderBy: Prisma.ProductOrderByWithRelationInput[] =
+      query.sort === 'price-asc'
+        ? [{ priceMinor: 'asc' }, { id: 'asc' }]
+        : query.sort === 'price-desc'
+          ? [{ priceMinor: 'desc' }, { id: 'asc' }]
+          : [{ createdAt: 'desc' }, { id: 'desc' }]
     const [items, total] = await this.database.client.$transaction([
       this.database.client.product.findMany({
         where,
         include: productIncludes,
-        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+        orderBy,
         skip: (page - 1) * limit,
         take: limit,
       }),
       this.database.client.product.count({ where }),
     ])
-    return { items, total, page, limit, pages: Math.ceil(total / limit) }
+    return presentPage(items.map(presentCatalogProduct), total, page, limit)
   }
 
   async getPublicProduct(slug: string) {
@@ -198,7 +259,7 @@ export class CatalogService {
       include: productIncludes,
     })
     if (!product) throw new NotFoundException('Product not found')
-    return product
+    return presentCatalogProduct(product)
   }
 
   async getAdminProduct(id: string) {
@@ -207,7 +268,7 @@ export class CatalogService {
       include: productIncludes,
     })
     if (!product) throw new NotFoundException('Product not found')
-    return product
+    return presentCatalogProduct(product)
   }
 
   async createProduct(input: CreateProductDto, actorId: string) {
@@ -242,6 +303,8 @@ export class CatalogService {
             slug: input.slug,
             sku,
             description: clean(input.description ?? ''),
+            badge: clean(input.badge ?? ''),
+            tag: input.tag ?? null,
             status: input.status ?? 'DRAFT',
             currency: input.currency ?? 'USD',
             priceMinor: input.priceMinor,
@@ -303,7 +366,7 @@ export class CatalogService {
           }
         }
         await this.audit(tx, actorId, 'product.created', 'product', product.id)
-        return product
+        return presentCatalogProduct(product)
       })
     } catch (err) {
       return translateDbError(err)
@@ -347,6 +410,8 @@ export class CatalogService {
             ...(input.description !== undefined
               ? { description: clean(input.description) }
               : {}),
+            ...(input.badge !== undefined ? { badge: clean(input.badge) } : {}),
+            ...(input.tag !== undefined ? { tag: input.tag } : {}),
             ...(input.status !== undefined ? { status: input.status } : {}),
             ...(input.currency !== undefined
               ? { currency: input.currency }
@@ -361,7 +426,7 @@ export class CatalogService {
           include: productIncludes,
         })
         await this.audit(tx, actorId, 'product.updated', 'product', id)
-        return product
+        return presentCatalogProduct(product)
       })
     } catch (err) {
       return translateDbError(err)
@@ -378,7 +443,7 @@ export class CatalogService {
           include: productIncludes,
         })
         await this.audit(tx, actorId, 'product.archived', 'product', id)
-        return product
+        return presentCatalogProduct(product)
       })
     } catch (err) {
       return translateDbError(err)

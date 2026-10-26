@@ -2,6 +2,7 @@ import { plainToInstance } from 'class-transformer'
 import { validate } from 'class-validator'
 import {
   CreateCategoryDto,
+  ProductQueryDto,
   CreateProductDto,
   CreateVariantDto,
   UpdateProductDto,
@@ -60,6 +61,30 @@ describe('Catalog DTO validation', () => {
       forbidNonWhitelisted: true,
     })
     expect(errors.map((error) => error.property)).toContain('stockOnHand')
+  })
+
+  it('rejects invalid category presentation metadata and invalid catalog filters', async () => {
+    const category = plainToInstance(CreateCategoryDto, {
+      name: 'Bad',
+      slug: 'bad',
+      color: 'red',
+      sortOrder: -1,
+      active: 'yes',
+    })
+    const invalidCategory = await validate(category)
+    expect(invalidCategory.map((error) => error.property)).toEqual(
+      expect.arrayContaining(['color', 'sortOrder', 'active']),
+    )
+    const query = plainToInstance(ProductQueryDto, {
+      minPriceMinor: -1,
+      inStock: 'sometimes',
+      sort: 'price-random',
+      tag: 'exclusive',
+    })
+    const invalidQuery = await validate(query)
+    expect(invalidQuery.map((error) => error.property)).toEqual(
+      expect.arrayContaining(['minPriceMinor', 'inStock', 'sort', 'tag']),
+    )
   })
 
   it('rejects invalid nested variant stock', async () => {

@@ -4,6 +4,7 @@ import {
   ArrayMinSize,
   ArrayUnique,
   IsArray,
+  IsBoolean,
   IsEnum,
   IsInt,
   IsObject,
@@ -45,7 +46,31 @@ export class CreateCategoryDto {
   @MaxLength(3000)
   description?: string
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({
+    example: '#EAF0FF',
+    description: 'Navigation tile color, six-digit hex',
+  })
+  @IsOptional()
+  @IsString()
+  @Matches(/^#[0-9A-Fa-f]{6}$/)
+  color?: string
+
+  @ApiPropertyOptional({ minimum: 0, maximum: 1000000, default: 0 })
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  @Max(1000000)
+  sortOrder?: number
+
+  @ApiPropertyOptional({
+    default: true,
+    description: 'Category navigation visibility; does not unpublish products',
+  })
+  @IsOptional()
+  @IsBoolean()
+  active?: boolean
+
+  @ApiPropertyOptional({ type: String, nullable: true })
   @IsOptional()
   @IsUUID()
   parentId?: string | null
@@ -92,6 +117,20 @@ export class UpdateVariantDto extends PartialType(
   OmitType(CreateVariantDto, ['stockOnHand'] as const),
 ) {}
 
+export enum CatalogProductTag {
+  NEW = 'new',
+  POPULAR = 'popular',
+  SALE = 'sale',
+}
+export enum CatalogProductSort {
+  NEWEST = 'newest',
+  PRICE_ASC = 'price-asc',
+  PRICE_DESC = 'price-desc',
+}
+export enum CatalogStockFilter {
+  TRUE = 'true',
+  FALSE = 'false',
+}
 export enum CatalogProductStatus {
   DRAFT = 'DRAFT',
   ACTIVE = 'ACTIVE',
@@ -118,6 +157,18 @@ export class CreateProductDto {
   @IsString()
   @MaxLength(10000)
   description?: string
+  @ApiPropertyOptional({
+    maxLength: 80,
+    description: 'Optional merchandising badge label',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(80)
+  badge?: string
+  @ApiPropertyOptional({ enum: CatalogProductTag })
+  @IsOptional()
+  @IsEnum(CatalogProductTag)
+  tag?: CatalogProductTag | null
   @ApiPropertyOptional()
   @IsOptional()
   @IsEnum(CatalogProductStatus)
@@ -191,4 +242,33 @@ export class ProductQueryDto {
   @IsOptional()
   @IsEnum(CatalogProductStatus)
   status?: CatalogProductStatus
+  @ApiPropertyOptional({ enum: CatalogProductTag })
+  @IsOptional()
+  @IsEnum(CatalogProductTag)
+  tag?: CatalogProductTag
+  @ApiPropertyOptional({
+    enum: CatalogProductSort,
+    default: CatalogProductSort.NEWEST,
+  })
+  @IsOptional()
+  @IsEnum(CatalogProductSort)
+  sort?: CatalogProductSort
+  @ApiPropertyOptional({ enum: CatalogStockFilter })
+  @IsOptional()
+  @IsEnum(CatalogStockFilter)
+  inStock?: CatalogStockFilter
+  @ApiPropertyOptional({ minimum: 0, maximum: MONEY_MAX })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  @Max(MONEY_MAX)
+  minPriceMinor?: number
+  @ApiPropertyOptional({ minimum: 0, maximum: MONEY_MAX })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  @Max(MONEY_MAX)
+  maxPriceMinor?: number
 }

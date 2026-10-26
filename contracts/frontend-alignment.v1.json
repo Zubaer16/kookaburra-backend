@@ -1,8 +1,8 @@
 {
-  "version": "1.1.0",
+  "version": "1.2.0",
   "purpose": "Source-backed pre-integration contract baseline, NOT proof of runtime integration",
   "sourceBaselines": {
-    "backend": "kookaburra-backend-full-20261025-220353.zip + A1 persistent role/permission alignment",
+    "backend": "kookaburra-backend-full-20261025-233449.zip + A2 alignment",
     "admin": "kookaburra-admin-full-20261025-181323.zip",
     "storefront": "kookaburra-storefront-full-20261020-101939.zip"
   },
@@ -30,14 +30,14 @@
       "id": "public-catalog",
       "priority": "P0",
       "status": "MATCH",
-      "summary": "Read-only public product/category routes exist",
+      "summary": "Read-only public catalog now exposes storefront filters and additive stable price/stock/category projection",
       "action": "Keep storefront catalog projection separate from admin persistence DTO"
     },
     {
       "id": "catalog-pricing",
       "priority": "P0",
       "status": "ADAPTER",
-      "summary": "Backend priceMinor vs admin price decimal vs storefront ApiMoney object",
+      "summary": "Read projection exposes integer minor-unit money and variant effective price; UI decimal conversion remains adapter responsibility",
       "action": "Use lossless minor-unit mapping; variant override must be represented; server is authoritative"
     },
     {
@@ -58,14 +58,14 @@
       "id": "category-shape",
       "priority": "P1",
       "status": "ADAPTER",
-      "summary": "Admin uses a single categoryId, backend accepts multiple categoryIds; storefront draft uses parentId",
+      "summary": "Category metadata active, color and sortOrder now persisted; frontend still needs English name adapter and primary-category view",
       "action": "Use explicit primary category for existing Admin view while retaining backend multiple categories"
     },
     {
       "id": "inventory-identity",
       "priority": "P0",
       "status": "ADAPTER",
-      "summary": "Admin stock adjustment uses productId/variantId; backend uses inventory balance UUID and requestId",
+      "summary": "Balance ID remains write identity; GET inventory supports productId and variantId lookup for Admin adapter",
       "action": "Create stock-adjustment adapter with lookup and UUID idempotency; use server lowStockThreshold"
     },
     {
@@ -94,7 +94,7 @@
       "priority": "P1",
       "status": "PLANNED",
       "summary": "Product images/galleries are required by both UIs but backend media model/API not yet implemented",
-      "action": "Lock media attachment, alt text, sort order and delete lifecycle in Phase 03C"
+      "action": "Implement provider-tracked media upload, ordered gallery, alt text, attachment and deletion in Phase 03C; do not invent image URLs in A2"
     },
     {
       "id": "commerce-future",
@@ -113,9 +113,9 @@
     {
       "id": "page-shape",
       "priority": "P1",
-      "status": "ADAPTER",
-      "summary": "Backend returns limit/pages; Storefront ApiPage declares pageSize",
-      "action": "Map limit -> pageSize and retain total/page; assert in contract tests"
+      "status": "MATCH",
+      "summary": "Product and Inventory pages now expose additive pageSize alias with existing limit/pages",
+      "action": "Use pageSize in Storefront adapter without removing limit compatibility"
     },
     {
       "id": "fixture-protection",
