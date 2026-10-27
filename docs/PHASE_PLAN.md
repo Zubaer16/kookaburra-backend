@@ -28,7 +28,10 @@
 
 ## Phase 04 — Checkout, payment, orders
 
-- [ ] Server-side quotes, shipping/tax and stock reservations.
+- [x] Phase 04A-1/04A-2: customer/guest carts, live catalog quote and secure merge (user-reported tests accepted).
+- [x] Phase 04B-1 (implementation only; local acceptance pending): JWT customer checkout estimate, configurable owner country/currency shipping and tax estimation with explicit no-fallback policy.
+- [ ] Phase 04B-2: safe reservation ledger, expiry, release, inventory adjustment coordination and concurrency tests.
+- [ ] Address-specific jurisdiction tax, actual shipping services and a finalized payable checkout quote.
 - [ ] Order snapshots, Stripe TEST mode, webhook verification/idempotency.
 
 ## Phase 05 — Frontend integration and rollout

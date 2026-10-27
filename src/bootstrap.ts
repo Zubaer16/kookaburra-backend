@@ -109,6 +109,14 @@ export async function createHttpApp(): Promise<INestApplication> {
         'Anonymous cart capability and one-time secure merge (no JWT authentication)',
       )
       .addTag(
+        'Checkout / Customer',
+        'Country-aware live shipping/tax estimate; no inventory reservation or payable checkout',
+      )
+      .addTag(
+        'Checkout / Admin',
+        'OWNER-only country/currency shipping and estimate tax policies',
+      )
+      .addTag(
         'Workspace / Admin',
         'JWT-only staff workspace roles and persistent permission grants',
       )

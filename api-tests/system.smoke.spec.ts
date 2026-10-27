@@ -32,6 +32,8 @@ test.describe('System & OpenAPI', () => {
       'Media / Disk',
       'Cart / Customer',
       'Cart / Guest',
+      'Checkout / Customer',
+      'Checkout / Admin',
       'Workspace / Admin',
     ])
     for (const endpoint of [

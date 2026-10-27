@@ -1,8 +1,8 @@
 {
-  "version": "1.6.0",
+  "version": "1.7.0",
   "purpose": "Source-backed pre-integration contract baseline, NOT proof of runtime integration",
   "sourceBaselines": {
-    "backend": "kookaburra-backend-full-20261027-131628.zip + Phase 04A-2 guest cart/merge",
+    "backend": "kookaburra-backend-full-20261027-184821.zip + Phase 04B-1 checkout estimate",
     "admin": "kookaburra-admin-full-20261025-181323.zip",
     "storefront": "kookaburra-storefront-full-20261020-101939.zip"
   },
@@ -17,7 +17,7 @@
     "media": "Provider-tracked media IDs and ordered gallery; Cloudinary/S3/R2 and VPS disk signer/verify/delete adapters supported; responsive renditions and external CDN purge pending",
     "pagination": "Existing {items,total,page,limit,pages} needs a frontend adapter to ApiPage.pageSize or additive backend alias",
     "apiStability": "Keep /v1 and legacy endpoints stable; add new documented DTOs without breaking already-tested clients",
-    "cart": "04A-2 supports anonymous capability-based carts and atomic JWT customer merge; backend quote uses live DB values and never reserves stock; Checkout/tax/shipping remain deferred."
+    "cart": "04A-2 cart and merge implemented; 04B-1 country/currency live estimated shipping/tax implemented; inventory reservation, address-specific tax and checkout/payment remain deferred."
   },
   "findings": [
     {
@@ -115,8 +115,8 @@
       "id": "commerce-future",
       "priority": "P2",
       "status": "PLANNED",
-      "summary": "Guest and authenticated carts exist; shipping, taxes, coupons, inventory reservation, checkout, order and payment remain planned",
-      "action": "Add secure checkout quote, reservations and order state machine before commercial rollout"
+      "summary": "04B-1 live customer checkout estimate and explicit OWNER country/currency shipping/tax policy implemented; inventory holds, true address tax, orders, payments and coupons remain planned",
+      "action": "Create concurrency-safe stock reservation and release before order/payment; integrate region/postcode taxes and legally applicable shipping/tax rules before production."
     },
     {
       "id": "status-shape",

@@ -37,7 +37,8 @@
     "alignment:test": "node --test scripts/check-frontend-alignment.spec.cjs",
     "media:renditions": "npm run build && node -r dotenv/config dist/tools/media-renditions.js",
     "media:reconcile": "npm run build && node -r dotenv/config dist/tools/media-reconcile.js",
-    "typecheck:swagger:syntax": "node scripts/check-swagger-syntax.cjs"
+    "typecheck:swagger:syntax": "node scripts/check-swagger-syntax.cjs",
+    "test:api:visual:checkout": "npm run build && node scripts/run-api-tests.cjs visual-checkout"
   },
   "engines": {
     "node": ">=24.11.0 <25"

@@ -48,6 +48,7 @@ function evaluate(roots) {
     ),
     backendCartController: read(roots.backend, 'src/cart/cart.controller.ts'),
     backendGuestController: read(roots.backend, 'src/cart/guest-cart.controller.ts'),
+    backendCheckoutController: read(roots.backend, 'src/checkout/checkout.controller.ts'),
     backendCatalogPresentation: read(
       roots.backend,
       'src/catalog/catalog.presentation.ts',
@@ -150,9 +151,9 @@ function evaluate(roots) {
       /ApiCheckoutQuote/.test(source.storefrontContracts),
     'commerce-future':
       /ApiCheckoutQuote/.test(source.storefrontContracts) &&
-      !fs.existsSync(
-        path.join(roots.backend, 'src/checkout/checkout.controller.ts'),
-      ),
+      /@Controller\('checkout'\)/.test(source.backendCheckoutController) &&
+      /@Post\('estimate'\)/.test(source.backendCheckoutController) &&
+      /model CheckoutRate\s*\{/.test(source.backendSchema),
     'status-shape':
       /'Active' \| 'Draft'/.test(source.adminTypes) &&
       /ARCHIVED/.test(source.backendCatalogDto),

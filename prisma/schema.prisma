@@ -395,3 +395,20 @@ model GuestCartItem {
   @@index([variantId])
   @@map("guest_cart_items")
 }
+
+// 04B-1: Explicit, owner-maintained country/currency checkout estimate policy.
+// No default jurisdiction, no implicit free shipping, no stock hold or order.
+model CheckoutRate {
+  id                     String   @id @default(uuid()) @db.Uuid
+  countryCode            String   @map("country_code") @db.VarChar(2)
+  currency               String   @db.VarChar(3)
+  shippingMinor          Int      @map("shipping_minor")
+  freeOverSubtotalMinor  Int?     @map("free_over_subtotal_minor")
+  taxBps                 Int      @map("tax_bps")
+  enabled                Boolean  @default(true)
+  createdAt              DateTime @default(now()) @map("created_at")
+  updatedAt              DateTime @updatedAt @map("updated_at")
+
+  @@unique([countryCode, currency], map: "checkout_rates_country_currency_key")
+  @@map("checkout_rates")
+}
