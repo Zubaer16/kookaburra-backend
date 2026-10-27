@@ -2,6 +2,7 @@ import 'reflect-metadata'
 import { NestFactory } from '@nestjs/core'
 import { AppModule } from '../app.module'
 import { ReservationService } from '../checkout/reservation.service'
+import { OrdersService } from '../orders/orders.service'
 
 async function main() {
   // Explicit operator-run command; can be called by cron/Task Scheduler.
@@ -16,14 +17,21 @@ async function main() {
       expired += batch.expired
       if (batch.expired < 50) break
     }
-    console.log(JSON.stringify({ expired }))
+    const orders = app.get(OrdersService)
+    let ordersExpired = 0
+    for (let i = 0; i < 100; i++) {
+      const batch = await orders.expireBatch(50)
+      ordersExpired += batch.expired
+      if (batch.expired < 50) break
+    }
+    console.log(JSON.stringify({ expired, ordersExpired }))
   } finally {
     await app.close()
   }
 }
 void main().catch(() => {
   console.error(
-    'Checkout expiry failed; verify database connectivity and reservation integrity',
+    'Checkout expiry failed; verify database connectivity, reservations and order allocations',
   )
   process.exitCode = 1
 })

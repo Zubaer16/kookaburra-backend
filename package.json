@@ -40,6 +40,7 @@
     "typecheck:swagger:syntax": "node scripts/check-swagger-syntax.cjs",
     "test:api:visual:checkout": "npm run build && node scripts/run-api-tests.cjs visual-checkout",
     "test:api:visual:reservation": "npm run build && node scripts/run-api-tests.cjs visual-reservation",
+    "test:api:visual:orders": "npm run build && node scripts/run-api-tests.cjs visual-orders",
     "checkout:expire": "npm run build && node -r dotenv/config dist/tools/checkout-expire.js"
   },
   "engines": {

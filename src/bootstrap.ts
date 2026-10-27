@@ -113,6 +113,10 @@ export async function createHttpApp(): Promise<INestApplication> {
         'Country-aware estimate and 10-minute inventory hold; no order/payment',
       )
       .addTag(
+        'Orders / Customer',
+        'Owned immutable unpaid orders, pending allocation and safe cancellation',
+      )
+      .addTag(
         'Checkout / Admin',
         'OWNER-only country/currency shipping and estimate tax policies',
       )

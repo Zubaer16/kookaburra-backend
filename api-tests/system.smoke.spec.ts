@@ -33,6 +33,7 @@ test.describe('System & OpenAPI', () => {
       'Cart / Customer',
       'Cart / Guest',
       'Checkout / Customer',
+      'Orders / Customer',
       'Checkout / Admin',
       'Workspace / Admin',
     ])

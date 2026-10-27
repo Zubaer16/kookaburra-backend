@@ -50,6 +50,7 @@ model User {
   cart Cart?
   mergedGuestCarts GuestCart[]
   checkoutReservations CheckoutReservation[]
+  orders Order[]
 
   @@map("users")
 }
@@ -340,6 +341,7 @@ model Cart {
   user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
   items     CartItem[]
   checkoutReservations CheckoutReservation[]
+  orders Order[]
   createdAt DateTime   @default(now()) @map("created_at")
   updatedAt DateTime   @updatedAt @map("updated_at")
 
@@ -422,6 +424,7 @@ enum CheckoutReservationStatus {
   ACTIVE
   RELEASED
   EXPIRED
+  CONSUMED
 }
 
 model CheckoutReservation {
@@ -442,6 +445,7 @@ model CheckoutReservation {
   expiresAt           DateTime @map("expires_at")
   releasedAt          DateTime? @map("released_at")
   lines               CheckoutReservationLine[]
+  order               Order?
 
   @@unique([customerId, requestId], map: "checkout_reservations_customer_request_key")
   @@index([status, expiresAt])
@@ -461,4 +465,74 @@ model CheckoutReservationLine {
 
   @@index([balanceId])
   @@map("checkout_reservation_lines")
+}
+
+// 04C-1: unpaid order intent owns the former reservation allocation.
+// Stock stays physically onHand until a future verified payment/fulfillment step.
+// reservedQuantity covers ACTIVE holds plus PENDING_PAYMENT order allocations.
+enum OrderStatus {
+  PENDING_PAYMENT
+  CANCELLED
+  EXPIRED
+}
+
+model Order {
+  id                String      @id @default(uuid()) @db.Uuid
+  customerId        String      @map("customer_id") @db.Uuid
+  customer          User        @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  cartId            String      @map("cart_id") @db.Uuid
+  cart              Cart        @relation(fields: [cartId], references: [id], onDelete: Restrict)
+  reservationId     String      @unique @map("reservation_id") @db.Uuid
+  reservation       CheckoutReservation @relation(fields: [reservationId], references: [id], onDelete: Restrict)
+  requestId         String      @map("request_id") @db.Uuid
+  requestHash       String      @map("request_hash") @db.VarChar(64)
+  status            OrderStatus @default(PENDING_PAYMENT)
+  countryCode       String      @map("country_code") @db.VarChar(2)
+  currency          String      @db.VarChar(3)
+  subtotalMinor     Int         @map("subtotal_minor")
+  shippingMinor     Int         @map("shipping_minor")
+  taxMinor          Int         @map("tax_minor")
+  totalMinor        Int         @map("total_minor")
+  shippingAddress   Json        @map("shipping_address") @db.JsonB
+  paymentDeadlineAt DateTime    @map("payment_deadline_at")
+  closedAt          DateTime?   @map("closed_at")
+  createdAt         DateTime    @default(now()) @map("created_at")
+  updatedAt         DateTime    @updatedAt @map("updated_at")
+  lines             OrderLine[]
+  statusEvents      OrderStatusEvent[]
+
+  @@unique([customerId, requestId], map: "orders_customer_request_key")
+  @@index([status, paymentDeadlineAt])
+  @@index([customerId, createdAt])
+  @@map("orders")
+}
+
+// No live product/variant FK: historical invoice snapshot survives catalog removal.
+model OrderLine {
+  id                  String  @id @default(uuid()) @db.Uuid
+  orderId             String  @map("order_id") @db.Uuid
+  order               Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productId           String  @map("product_id") @db.Uuid
+  variantId           String? @map("variant_id") @db.Uuid
+  titleSnapshot       String  @map("title_snapshot") @db.VarChar(250)
+  skuSnapshot         String? @map("sku_snapshot") @db.VarChar(120)
+  optionsSnapshotJson String  @map("options_snapshot_json") @db.Text
+  quantity            Int
+  unitPriceMinor      Int     @map("unit_price_minor")
+  lineTotalMinor      Int     @map("line_total_minor")
+
+  @@index([orderId])
+  @@map("order_lines")
+}
+
+model OrderStatusEvent {
+  id        String      @id @default(uuid()) @db.Uuid
+  orderId   String      @map("order_id") @db.Uuid
+  order     Order       @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  status    OrderStatus
+  reason    String      @db.VarChar(80)
+  createdAt DateTime    @default(now()) @map("created_at")
+
+  @@index([orderId, createdAt])
+  @@map("order_status_events")
 }

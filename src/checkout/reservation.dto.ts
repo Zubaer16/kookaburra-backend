@@ -27,10 +27,8 @@ export class CheckoutReservationResponseDto {
   @ApiProperty({ format: 'uuid' }) id!: string
   @ApiProperty({ format: 'uuid' }) cartId!: string
   @ApiProperty({ format: 'uuid' }) requestId!: string
-  @ApiProperty({ enum: ['ACTIVE', 'EXPIRED', 'RELEASED'] }) status!:
-    | 'ACTIVE'
-    | 'EXPIRED'
-    | 'RELEASED'
+  @ApiProperty({ enum: ['ACTIVE', 'EXPIRED', 'RELEASED', 'CONSUMED'] })
+  status!: 'ACTIVE' | 'EXPIRED' | 'RELEASED' | 'CONSUMED'
   @ApiProperty({ format: 'date-time' }) expiresAt!: Date
   @ApiProperty({ example: 'US' }) countryCode!: string
   @ApiProperty({ example: 'USD' }) currency!: string

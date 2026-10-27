@@ -3,6 +3,7 @@ import { randomUUID } from 'node:crypto'
 import { PrismaPg } from '@prisma/adapter-pg'
 import { PrismaClient } from '../src/generated/prisma/client'
 import { ReservationService } from '../src/checkout/reservation.service'
+import { OrdersService } from '../src/orders/orders.service'
 import { DatabaseService } from '../src/database/database.service'
 
 /** Shared isolation/cleanup for Catalog visual, security and HTTP integration
@@ -88,6 +89,31 @@ export class CatalogTestFixture {
       })
       const fixtureUserIds = fixtureUsers.map((user) => user.id)
       if (fixtureUserIds.length) {
+        // Pending order allocations also contribute to reserved_quantity.
+        // Cancel them through production transactional logic before fixture deletion.
+        const fixtureOrders = await this.db.order.findMany({
+          where: { customerId: { in: fixtureUserIds } },
+          select: { id: true, customerId: true, status: true },
+        })
+        const ordersService = new OrdersService({
+          client: this.db,
+        } as unknown as DatabaseService)
+        for (const order of fixtureOrders) {
+          if (order.status === 'PENDING_PAYMENT')
+            await ordersService.cancel(order.customerId, order.id)
+          // Remove ONLY this fixture's transactional outbox records.
+          await this.db.outboxEvent.deleteMany({
+            where: {
+              eventType: {
+                in: ['order.created', 'order.cancelled', 'order.expired'],
+              },
+              payload: { path: ['orderId'], equals: order.id },
+            },
+          })
+        }
+        await this.db.order.deleteMany({
+          where: { customerId: { in: fixtureUserIds } },
+        })
         // Even a failed assertion must not leak reserved stock into later tests.
         // Release with the production service before deleting fixture history.
         const active = await this.db.checkoutReservation.findMany({

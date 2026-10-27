@@ -30,9 +30,10 @@
 
 - [x] Phase 04A-1/04A-2: customer/guest carts, live catalog quote and secure merge (user-reported tests accepted).
 - [x] Phase 04B-1 (local Codex validation accepted: 181 test executions): JWT customer checkout estimate, configurable owner country/currency shipping and tax estimation with explicit no-fallback policy.
-- [x] Phase 04B-2 implementation: guarded stock holds, expiry/release, adjustment guards, concurrency tests (local acceptance pending).
+- [x] Phase 04B-2: guarded stock holds, expiry/release, adjustment guards; user reported 186/186 local validation executions PASS.
 - [ ] Address-specific jurisdiction tax, actual shipping services and a finalized payable checkout quote.
-- [ ] Order snapshots, Stripe TEST mode, webhook verification/idempotency.
+- [x] Phase 04C-1 implementation: order snapshots, time-bounded unpaid allocation, cancellation/expiry with transactional release (Windows acceptance pending).
+- [ ] Phase 04C-2 Stripe TEST mode, webhook verification/idempotency and paid stock consumption.
 
 ## Phase 05 — Frontend integration and rollout
 
