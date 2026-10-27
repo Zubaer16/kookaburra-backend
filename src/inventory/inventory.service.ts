@@ -43,6 +43,8 @@ function present(balance: BalanceWithIdentity) {
     sku: balance.variant?.sku ?? balance.product?.sku,
     title: balance.product?.title ?? balance.variant?.product.title,
     onHand: balance.onHand,
+    reservedQuantity: balance.reservedQuantity,
+    availableQuantity: balance.onHand - balance.reservedQuantity,
     lowStockThreshold: balance.lowStockThreshold,
     lowStock: balance.onHand <= balance.lowStockThreshold,
     updatedAt: balance.updatedAt,
@@ -210,14 +212,17 @@ export class InventoryService {
         }
         // Atomic guarded SQL UPDATE through Prisma; concurrent requests cannot
         // overwrite each other or make stock negative / overflow INT32.
-        const lowerBound = input.delta < 0 ? -input.delta : 0
-        const upperBound =
-          input.delta > 0 ? 2_147_483_647 - input.delta : 2_147_483_647
-        const changed = await tx.inventoryBalance.updateMany({
-          where: { id, onHand: { gte: lowerBound, lte: upperBound } },
-          data: { onHand: { increment: input.delta } },
-        })
-        if (!changed.count)
+        // PostgreSQL atomic guarded update: physical stock cannot drop below
+        // active holds even when an admin adjustment races a reservation.
+        const changed = await tx.$queryRaw<Array<{ id: string }>>`
+          UPDATE inventory_balances
+          SET on_hand = on_hand + ${input.delta}, updated_at = (CURRENT_TIMESTAMP AT TIME ZONE 'UTC')
+          WHERE id = ${id}::uuid
+            AND on_hand::bigint + ${input.delta} >= reserved_quantity
+            AND on_hand::bigint + ${input.delta} <= 2147483647
+          RETURNING id
+        `
+        if (!changed.length)
           throw new ConflictException(
             'Insufficient stock or stock limit exceeded',
           )

@@ -1,9 +1,10 @@
-import { Body, Controller, Get, HttpCode, HttpStatus, Post, Put, Req, UseGuards } from '@nestjs/common'
+import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, ParseUUIDPipe, Post, Put, Req, UseGuards } from '@nestjs/common'
 import {
   ApiBadRequestResponse,
   ApiBearerAuth,
   ApiConflictResponse,
   ApiForbiddenResponse,
+  ApiNotFoundResponse,
   ApiOkResponse,
   ApiOperation,
   ApiTags,
@@ -17,6 +18,8 @@ import { CustomerCartGuard } from '../cart/cart.customer.guard'
 import { CheckoutEstimateDto, CheckoutEstimateResponseDto, PutCheckoutRateDto } from './checkout.dto'
 import { CheckoutOwnerGuard } from './checkout.owner.guard'
 import { CheckoutService } from './checkout.service'
+import { ReservationService } from './reservation.service'
+import { CreateReservationDto, CheckoutReservationResponseDto } from './reservation.dto'
 
 @ApiTags('Checkout / Customer')
 @ApiBearerAuth('access-token')
@@ -25,7 +28,7 @@ import { CheckoutService } from './checkout.service'
 @ApiUnauthorizedResponse({ description: 'Customer JWT required' })
 @ApiForbiddenResponse({ description: 'Not a customer account' })
 export class CheckoutCustomerController {
-  constructor(private readonly checkout: CheckoutService) {}
+  constructor(private readonly checkout: CheckoutService, private readonly reservations: ReservationService) {}
 
   @Post('estimate')
   @HttpCode(HttpStatus.OK)
@@ -36,6 +39,33 @@ export class CheckoutCustomerController {
   @ApiUnprocessableEntityResponse({ description: 'No enabled configured country/currency shipping and tax policy' })
   estimate(@Req() req: AuthenticatedRequest, @Body() dto: CheckoutEstimateDto) {
     return this.checkout.estimate(req.authUser!.id, dto)
+  }
+
+  @Post('reservations')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Hold currently available SKU quantities for 10 minutes (idempotent); NOT an order/payment' })
+  @ApiOkResponse({ type: CheckoutReservationResponseDto })
+  @ApiBadRequestResponse({ description: 'Invalid requestId or countryCode; client cannot supply totals' })
+  @ApiConflictResponse({ description: 'Active hold exists, invalid cart, or insufficient unreserved stock' })
+  @ApiUnprocessableEntityResponse({ description: 'No enabled country/currency policy' })
+  reserve(@Req() req: AuthenticatedRequest, @Body() dto: CreateReservationDto) {
+    return this.reservations.reserve(req.authUser!.id, dto)
+  }
+
+  @Get('reservations/:id')
+  @ApiOperation({ summary: 'Read own hold; expired holds are released atomically' })
+  @ApiOkResponse({ type: CheckoutReservationResponseDto })
+  @ApiNotFoundResponse({ description: 'Unknown reservation or not owned by authenticated customer' })
+  reservation(@Req() req: AuthenticatedRequest, @Param('id', ParseUUIDPipe) id: string) {
+    return this.reservations.get(req.authUser!.id, id)
+  }
+
+  @Delete('reservations/:id')
+  @ApiOperation({ summary: 'Idempotently release own stock hold; payment/order not created' })
+  @ApiOkResponse({ type: CheckoutReservationResponseDto })
+  @ApiNotFoundResponse({ description: 'Unknown reservation or not owned by authenticated customer' })
+  release(@Req() req: AuthenticatedRequest, @Param('id', ParseUUIDPipe) id: string) {
+    return this.reservations.release(req.authUser!.id, id)
   }
 }
 

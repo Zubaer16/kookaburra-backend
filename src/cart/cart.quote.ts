@@ -10,14 +10,14 @@ export type QuoteInputLine = {
     currency: string
     priceMinor: number
     hasVariants: boolean
-    inventoryBalance: { onHand: number } | null
+    inventoryBalance: { onHand: number; reservedQuantity?: number } | null
   }
   variant: {
     id: string
     productId: string
     sku: string
     priceMinor: number | null
-    inventoryBalance: { onHand: number } | null
+    inventoryBalance: { onHand: number; reservedQuantity?: number } | null
   } | null
 }
 
@@ -45,8 +45,16 @@ export function calculateCartQuote(
         : product.priceMinor
     const availableQuantity = validVariant
       ? product.hasVariants
-        ? (variant?.inventoryBalance?.onHand ?? 0)
-        : (product.inventoryBalance?.onHand ?? 0)
+        ? Math.max(
+            0,
+            (variant?.inventoryBalance?.onHand ?? 0) -
+              (variant?.inventoryBalance?.reservedQuantity ?? 0),
+          )
+        : Math.max(
+            0,
+            (product.inventoryBalance?.onHand ?? 0) -
+              (product.inventoryBalance?.reservedQuantity ?? 0),
+          )
       : 0
     let status = 'AVAILABLE'
     if (product.status !== 'ACTIVE') status = 'UNPUBLISHED'

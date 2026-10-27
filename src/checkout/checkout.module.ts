@@ -6,11 +6,12 @@ import {
 } from './checkout.controller'
 import { CheckoutService } from './checkout.service'
 import { CheckoutOwnerGuard } from './checkout.owner.guard'
+import { ReservationService } from './reservation.service'
 import { CustomerCartGuard } from '../cart/cart.customer.guard'
 
 @Module({
   imports: [AuthModule],
   controllers: [CheckoutCustomerController, CheckoutAdminController],
-  providers: [CheckoutService, CheckoutOwnerGuard, CustomerCartGuard],
+  providers: [CheckoutService, ReservationService, CheckoutOwnerGuard, CustomerCartGuard],
 })
 export class CheckoutModule {}

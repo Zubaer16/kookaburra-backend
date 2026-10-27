@@ -22,7 +22,7 @@ export const quoteIncludes = {
           currency: true,
           priceMinor: true,
           hasVariants: true,
-          inventoryBalance: { select: { onHand: true } },
+          inventoryBalance: { select: { id: true, onHand: true, reservedQuantity: true } },
         },
       },
       variant: {
@@ -31,12 +31,20 @@ export const quoteIncludes = {
           productId: true,
           sku: true,
           priceMinor: true,
-          inventoryBalance: { select: { onHand: true } },
+          inventoryBalance: { select: { id: true, onHand: true, reservedQuantity: true } },
         },
       },
     },
   },
 } satisfies Prisma.CartInclude
+
+/** Call after locking the cart row, to serialize edits against hold creation. */
+export async function ensureCartEditable(tx: Prisma.TransactionClient, cartId: string) {
+  const active = await tx.checkoutReservation.findFirst({
+    where: { cartId, status: 'ACTIVE' }, select: { id: true },
+  })
+  if (active) throw new ConflictException('Release the active checkout reservation before editing cart')
+}
 
 @Injectable()
 export class CartService {
@@ -66,6 +74,7 @@ export class CartService {
       })
       // Serialize all concurrent cart writes per owner, including the 50-line cap.
       await tx.$queryRaw`SELECT id FROM carts WHERE id = ${cart.id}::uuid FOR UPDATE`
+      await ensureCartEditable(tx, cart.id)
       const { product, variantId } = await validateCartSelection(tx, input)
       const otherCurrency = await tx.cartItem.findFirst({
         where: {
@@ -110,6 +119,7 @@ export class CartService {
       })
       if (!cart) throw new NotFoundException('Cart item not found')
       await tx.$queryRaw`SELECT id FROM carts WHERE id = ${cart.id}::uuid FOR UPDATE`
+      await ensureCartEditable(tx, cart.id)
       const result = await tx.cartItem.deleteMany({
         where: { id, cartId: cart.id },
       })
@@ -126,6 +136,7 @@ export class CartService {
       })
       if (!cart) return
       await tx.$queryRaw`SELECT id FROM carts WHERE id = ${cart.id}::uuid FOR UPDATE`
+      await ensureCartEditable(tx, cart.id)
       await tx.cartItem.deleteMany({ where: { cartId: cart.id } })
     })
     return this.getQuote(customerId)

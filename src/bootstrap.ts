@@ -110,7 +110,7 @@ export async function createHttpApp(): Promise<INestApplication> {
       )
       .addTag(
         'Checkout / Customer',
-        'Country-aware live shipping/tax estimate; no inventory reservation or payable checkout',
+        'Country-aware estimate and 10-minute inventory hold; no order/payment',
       )
       .addTag(
         'Checkout / Admin',

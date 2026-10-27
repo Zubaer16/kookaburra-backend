@@ -20,6 +20,7 @@ const allowed = [
   'visual-db',
   'visual-guest',
   'visual-checkout',
+  'visual-reservation',
   'visual-report',
   'security',
 ]
@@ -174,7 +175,7 @@ try {
   }
   // DB and Chromium-DB suites exercise real local disk I/O in an isolated,
   // throwaway OS temporary folder; SECURITY stays on unconfigured cloudinary.
-  if (mode === 'db' || mode === 'visual-db' || mode === 'visual-guest' || mode === 'visual-checkout') {
+  if (mode === 'db' || mode === 'visual-db' || mode === 'visual-guest' || mode === 'visual-checkout' || mode === 'visual-reservation') {
     safe.MEDIA_PROVIDER = 'disk'
     safe.MEDIA_DISK_ROOT = path.join(
       os.tmpdir(),
@@ -188,13 +189,14 @@ try {
   const cli = path.join(root, 'node_modules', '@playwright', 'test', 'cli.js')
   run(
     cli,
-    mode === 'visual-db' || mode === 'visual-guest' || mode === 'visual-checkout'
+    mode === 'visual-db' || mode === 'visual-guest' || mode === 'visual-checkout' || mode === 'visual-reservation'
       ? [
           'test',
           '--config=playwright.swagger.config.mjs',
           '--project=visual-db',
           ...(mode === 'visual-guest' ? ['--grep', '04A-2 Swagger Chromium: guest capability'] : []),
           ...(mode === 'visual-checkout' ? ['--grep', '04B-1 Swagger Chromium: owner policy configuration'] : []),
+          ...(mode === 'visual-reservation' ? ['--grep', '04B-2 Swagger Chromium: reservation'] : []),
         ]
       : mode === 'security'
         ? ['test', '--config=playwright.api.config.mjs', '--project=security']

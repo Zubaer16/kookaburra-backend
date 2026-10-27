@@ -8,7 +8,7 @@ import {
 import { DatabaseService } from '../database/database.service'
 import { Prisma } from '../generated/prisma/client'
 import { SetCartItemDto } from './cart.dto'
-import { quoteIncludes } from './cart.service'
+import { ensureCartEditable, quoteIncludes } from './cart.service'
 import { calculateCartQuote } from './cart.quote'
 import { validateCartSelection } from './cart.selection'
 
@@ -174,6 +174,7 @@ export class GuestCartService {
         update: { updatedAt: new Date() },
       })
       await tx.$queryRaw`SELECT id FROM carts WHERE id = ${cart.id}::uuid FOR UPDATE`
+      await ensureCartEditable(tx, cart.id)
       const current = await tx.cartItem.findMany({
         where: { cartId: cart.id },
         select: {

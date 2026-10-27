@@ -49,6 +49,7 @@ model User {
   staffRoleAssignment StaffRoleAssignment?
   cart Cart?
   mergedGuestCarts GuestCart[]
+  checkoutReservations CheckoutReservation[]
 
   @@map("users")
 }
@@ -177,6 +178,8 @@ model InventoryBalance {
   onHand            Int                @default(0) @map("on_hand")
   lowStockThreshold Int                @default(5) @map("low_stock_threshold")
   movements         InventoryMovement[]
+  reservedQuantity  Int                @default(0) @map("reserved_quantity")
+  reservationLines  CheckoutReservationLine[]
   createdAt         DateTime           @default(now()) @map("created_at")
   updatedAt         DateTime           @updatedAt @map("updated_at")
 
@@ -336,6 +339,7 @@ model Cart {
   userId    String     @unique @map("user_id") @db.Uuid
   user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
   items     CartItem[]
+  checkoutReservations CheckoutReservation[]
   createdAt DateTime   @default(now()) @map("created_at")
   updatedAt DateTime   @updatedAt @map("updated_at")
 
@@ -411,4 +415,50 @@ model CheckoutRate {
 
   @@unique([countryCode, currency], map: "checkout_rates_country_currency_key")
   @@map("checkout_rates")
+}
+
+// 04B-2: time-limited stock holds; not an order or payment intent.
+enum CheckoutReservationStatus {
+  ACTIVE
+  RELEASED
+  EXPIRED
+}
+
+model CheckoutReservation {
+  id                  String   @id @default(uuid()) @db.Uuid
+  customerId          String   @map("customer_id") @db.Uuid
+  customer            User     @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  cartId              String   @map("cart_id") @db.Uuid
+  cart                Cart     @relation(fields: [cartId], references: [id], onDelete: Restrict)
+  requestId           String   @map("request_id") @db.Uuid
+  status              CheckoutReservationStatus @default(ACTIVE)
+  countryCode         String   @map("country_code") @db.VarChar(2)
+  currency            String   @db.VarChar(3)
+  subtotalMinor       Int      @map("subtotal_minor")
+  shippingMinor       Int      @map("shipping_minor")
+  taxMinor            Int      @map("tax_minor")
+  estimatedTotalMinor Int      @map("estimated_total_minor")
+  createdAt           DateTime @default(now()) @map("created_at")
+  expiresAt           DateTime @map("expires_at")
+  releasedAt          DateTime? @map("released_at")
+  lines               CheckoutReservationLine[]
+
+  @@unique([customerId, requestId], map: "checkout_reservations_customer_request_key")
+  @@index([status, expiresAt])
+  @@map("checkout_reservations")
+}
+
+model CheckoutReservationLine {
+  id            String @id @default(uuid()) @db.Uuid
+  reservationId String @map("reservation_id") @db.Uuid
+  reservation   CheckoutReservation @relation(fields: [reservationId], references: [id], onDelete: Cascade)
+  balanceId     String @map("balance_id") @db.Uuid
+  balance       InventoryBalance @relation(fields: [balanceId], references: [id], onDelete: Restrict)
+  productId     String @map("product_id") @db.Uuid
+  variantId     String? @map("variant_id") @db.Uuid
+  quantity      Int
+  unitPriceMinor Int @map("unit_price_minor")
+
+  @@index([balanceId])
+  @@map("checkout_reservation_lines")
 }

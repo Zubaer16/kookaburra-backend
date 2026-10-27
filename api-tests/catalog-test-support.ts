@@ -2,6 +2,8 @@ import { expect, type APIRequestContext } from '@playwright/test'
 import { randomUUID } from 'node:crypto'
 import { PrismaPg } from '@prisma/adapter-pg'
 import { PrismaClient } from '../src/generated/prisma/client'
+import { ReservationService } from '../src/checkout/reservation.service'
+import { DatabaseService } from '../src/database/database.service'
 
 /** Shared isolation/cleanup for Catalog visual, security and HTTP integration
  * tests. Never connect outside the guarded LOCAL kookaburra_api_test database.
@@ -78,6 +80,29 @@ export class CatalogTestFixture {
         select: { id: true },
       })
       const productIds = products.map((product) => product.id)
+      // Reservations (including released history) reference SKU balance rows
+      // with RESTRICT. Remove only this fixture's customer holds first.
+      const fixtureUsers = await this.db.user.findMany({
+        where: { email: { in: this.emails } },
+        select: { id: true },
+      })
+      const fixtureUserIds = fixtureUsers.map((user) => user.id)
+      if (fixtureUserIds.length) {
+        // Even a failed assertion must not leak reserved stock into later tests.
+        // Release with the production service before deleting fixture history.
+        const active = await this.db.checkoutReservation.findMany({
+          where: { customerId: { in: fixtureUserIds }, status: 'ACTIVE' },
+          select: { id: true, customerId: true },
+        })
+        const reservations = new ReservationService({
+          client: this.db,
+        } as unknown as DatabaseService)
+        for (const hold of active)
+          await reservations.release(hold.customerId, hold.id)
+        await this.db.checkoutReservation.deleteMany({
+          where: { customerId: { in: fixtureUserIds } },
+        })
+      }
       if (productIds.length) {
         await this.db.productVariant.deleteMany({
           where: { productId: { in: productIds } },
