@@ -453,12 +453,163 @@ export class MediaService {
     )
   }
 
+  /**
+   * Operator-facing reconciliation. Read-only unless apply=true. Aged, verified
+   * unreferenced media receives a NEW retention window; missing deletion jobs
+   * are repaired. No provider API calls or physical deletion occur here.
+   */
+  async reconcileBatch(limit = 50, apply = false) {
+    if (!Number.isInteger(limit) || limit < 1 || limit > 100)
+      throw new BadRequestException('Reconciliation limit must be 1..100')
+    const namespace = this.config.get('MEDIA_NAMESPACE', { infer: true })
+    const cutoff = new Date(Date.now() - RETENTION_MS)
+    const orphaned = await this.db.client.mediaAsset.findMany({
+      where: {
+        namespace,
+        status: 'ACTIVE',
+        updatedAt: { lt: cutoff },
+        productLinks: { none: {} },
+        // Never reset an in-flight or failed deletion during orphan repair.
+        OR: [
+          { deletionJob: { is: null } },
+          {
+            deletionJob: {
+              is: { status: { in: ['CANCELLED', 'COMPLETED'] } },
+            },
+          },
+        ],
+      },
+      orderBy: { id: 'asc' },
+      take: limit,
+      select: { id: true },
+    })
+    // PENDING/PROCESSING jobs must be left to the normal cleanup worker.
+    // FAILED jobs require the existing explicit operator retry endpoint.
+    const stranded = await this.db.client.mediaAsset.findMany({
+      where: {
+        namespace,
+        status: 'PENDING_DELETE',
+        OR: [
+          { deletionJob: { is: null } },
+          {
+            deletionJob: {
+              is: { status: { in: ['CANCELLED', 'COMPLETED'] } },
+            },
+          },
+        ],
+      },
+      orderBy: { id: 'asc' },
+      take: limit,
+      select: { id: true },
+    })
+    const report = {
+      dryRun: !apply,
+      namespace,
+      orphanCandidates: orphaned.length,
+      missingDeletionJobCandidates: stranded.length,
+      orphanScheduled: 0,
+      deletionJobsRepaired: 0,
+      skipped: 0,
+      failedDeletionAssets: await this.db.client.mediaAsset.count({
+        where: { namespace, status: 'DELETE_FAILED' },
+      }),
+    }
+    if (!apply) return report
+
+    for (const { id } of orphaned) {
+      const scheduled = await this.db.client.$transaction(
+        async (tx) => {
+          await this.lockMedia(tx, [id])
+          const current = await tx.mediaAsset.findUnique({ where: { id } })
+          if (
+            !current ||
+            current.namespace !== namespace ||
+            current.status !== 'ACTIVE' ||
+            current.updatedAt >= cutoff ||
+            (await tx.productMedia.count({ where: { mediaId: id } })) > 0
+          )
+            return false
+          const existingJob = await tx.mediaDeletionJob.findUnique({
+            where: { mediaId: id },
+          })
+          if (
+            existingJob &&
+            !['CANCELLED', 'COMPLETED'].includes(existingJob.status)
+          )
+            return false
+          const changed = await this.scheduleDeletion(
+            tx,
+            id,
+            new Date(Date.now() + RETENTION_MS),
+          )
+          if (changed)
+            await tx.auditEvent.create({
+              data: {
+                action: 'media.orphan.reconciliation.scheduled',
+                targetType: 'media',
+                targetId: id,
+              },
+            })
+          return changed
+        },
+        { isolationLevel: 'Serializable' },
+      )
+      if (scheduled) report.orphanScheduled++
+      else report.skipped++
+    }
+    for (const { id } of stranded) {
+      const repaired = await this.db.client.$transaction(
+        async (tx) => {
+          await this.lockMedia(tx, [id])
+          const current = await tx.mediaAsset.findUnique({ where: { id } })
+          if (
+            !current ||
+            current.namespace !== namespace ||
+            current.status !== 'PENDING_DELETE' ||
+            (await tx.productMedia.count({ where: { mediaId: id } })) > 0
+          )
+            return false
+          const job = await tx.mediaDeletionJob.findUnique({
+            where: { mediaId: id },
+          })
+          // Do not reset failed or in-flight cleanup attempts automatically.
+          if (job && !['CANCELLED', 'COMPLETED'].includes(job.status))
+            return false
+          await tx.mediaDeletionJob.upsert({
+            where: { mediaId: id },
+            create: { mediaId: id, status: 'PENDING', availableAt: new Date() },
+            update: {
+              status: 'PENDING',
+              attempts: 0,
+              claimedAt: null,
+              lastError: null,
+              availableAt: new Date(),
+            },
+          })
+          await tx.auditEvent.create({
+            data: {
+              action: 'media.deletion.job.reconciled',
+              targetType: 'media',
+              targetId: id,
+            },
+          })
+          return true
+        },
+        { isolationLevel: 'Serializable' },
+      )
+      if (repaired) report.deletionJobsRepaired++
+      else report.skipped++
+    }
+    return report
+  }
+
   /** Durable, idempotent, batch processor. Run by scheduler/VPS worker, not in HTTP background. */
   async cleanupBatch(limit = 20) {
     const now = new Date()
     // Expired abandoned uploads may exist remotely; enqueue their known keys.
     const expired = await this.db.client.mediaAsset.findMany({
       where: {
+        namespace: this.config.get('MEDIA_NAMESPACE', { infer: true }),
         status: 'PENDING_UPLOAD',
         uploadExpiresAt: { lt: new Date(Date.now() - 24 * 60 * 60 * 1000) },
       },
@@ -468,9 +619,14 @@ export class MediaService {
     for (const item of expired) {
       await this.db.client.$transaction(async (tx) => {
         await this.lockMedia(tx, [item.id])
+        const pending = await tx.mediaAsset.findUnique({
+          where: { id: item.id },
+        })
         if (
-          (await tx.mediaAsset.findUnique({ where: { id: item.id } }))
-            ?.status === 'PENDING_UPLOAD'
+          pending?.status === 'PENDING_UPLOAD' &&
+          pending.namespace ===
+            this.config.get('MEDIA_NAMESPACE', { infer: true }) &&
+          pending.objectKey.startsWith(`${pending.namespace}/`)
         )
           await this.scheduleDeletion(tx, item.id, now)
       })

@@ -34,7 +34,8 @@
     "alignment:audit": "node scripts/check-frontend-alignment.cjs",
     "alignment:gate": "node scripts/check-frontend-alignment.cjs --strict",
     "alignment:test": "node --test scripts/check-frontend-alignment.spec.cjs",
-    "media:renditions": "npm run build && node -r dotenv/config dist/tools/media-renditions.js"
+    "media:renditions": "npm run build && node -r dotenv/config dist/tools/media-renditions.js",
+    "media:reconcile": "npm run build && node -r dotenv/config dist/tools/media-reconcile.js"
   },
   "engines": {
     "node": ">=24.11.0 <25"

@@ -31,3 +31,7 @@ npm run test:api:visual:all
 ```
 
 Verification in the authoring environment: patch paths and archive integrity checked. **Full Node 24 / NestJS / PostgreSQL / Chromium tests were not run here** and must be verified locally.
+
+### Phase 03C-3 operator reconciliation
+
+For media lifecycle drift, run `npm run media:reconcile` (read-only). After reviewing the report, `npm run media:reconcile -- --apply` schedules missing/orphan deletion jobs without deleting provider files. See `docs/PHASE03C3_MEDIA_RECONCILIATION.md`.
