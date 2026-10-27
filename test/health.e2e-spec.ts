@@ -38,6 +38,7 @@ describe('Phase 03B API smoke tests (no real database)', () => {
       'Inventory / Admin',
       'Media / Admin',
       'Media / Disk',
+      'Cart / Customer',
       'Workspace / Admin',
     ])
   })

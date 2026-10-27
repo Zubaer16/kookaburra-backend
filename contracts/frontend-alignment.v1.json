@@ -1,8 +1,8 @@
 {
-  "version": "1.4.0",
+  "version": "1.5.0",
   "purpose": "Source-backed pre-integration contract baseline, NOT proof of runtime integration",
   "sourceBaselines": {
-    "backend": "kookaburra-backend-full-20261026-140643.zip + Phase 03C-2B VPS disk adapter",
+    "backend": "kookaburra-backend-full-20261027-104730.zip + Phase 04A-1 customer cart",
     "admin": "kookaburra-admin-full-20261025-181323.zip",
     "storefront": "kookaburra-storefront-full-20261020-101939.zip"
   },
@@ -16,7 +16,8 @@
     "status": "Explicit map ACTIVE/DRAFT/ARCHIVED; never silently map ARCHIVED to Draft",
     "media": "Provider-tracked media IDs and ordered gallery; Cloudinary/S3/R2 and VPS disk signer/verify/delete adapters supported; responsive renditions and external CDN purge pending",
     "pagination": "Existing {items,total,page,limit,pages} needs a frontend adapter to ApiPage.pageSize or additive backend alias",
-    "apiStability": "Keep /v1 and legacy endpoints stable; add new documented DTOs without breaking already-tested clients"
+    "apiStability": "Keep /v1 and legacy endpoints stable; add new documented DTOs without breaking already-tested clients",
+    "cart": "Phase 04A-1 customer JWT cart; server prices and checks stock on each quote; cart does not reserve stock. Guest cart, checkout totals, order and payment are deferred."
   },
   "findings": [
     {
@@ -97,11 +98,18 @@
       "action": "Use canonical media IDs/URLs and signed upload method/headers; Cloudinary POST, S3/R2 presigned PUT and VPS signed raw PUT supported. Responsive renditions and external CDN purge are later increments."
     },
     {
+      "id": "customer-cart",
+      "priority": "P0",
+      "status": "ADAPTER",
+      "summary": "Customer JWT cart and live authoritative price/stock quote implemented; storefront cart adapter is not yet connected",
+      "action": "Use canonical productId/variantId and Bearer JWT; never send client-side totals or expect inventory to be reserved"
+    },
+    {
       "id": "commerce-future",
       "priority": "P2",
       "status": "PLANNED",
-      "summary": "Cart/checkout/order quote contracts are drafts; backend commerce endpoints do not exist yet",
-      "action": "Derive shipping, taxes, coupons, quotes, orders and payment state from both UIs before Phases 04/05"
+      "summary": "Customer cart and live merchandise quote exist; guest cart, shipping, taxes, coupons, stock reservation, order and payment endpoints remain planned",
+      "action": "Add guest cart and checkout/tax/shipping/reservation phases before marking commerce production ready"
     },
     {
       "id": "status-shape",

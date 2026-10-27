@@ -90,6 +90,10 @@ export async function createHttpApp(): Promise<INestApplication> {
         'VPS-only signed raw uploads and published media delivery',
       )
       .addTag(
+        'Cart / Customer',
+        'Customer-owned persistent cart and live server-side quote (no reservation)',
+      )
+      .addTag(
         'Workspace / Admin',
         'JWT-only staff workspace roles and persistent permission grants',
       )

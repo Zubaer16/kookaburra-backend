@@ -46,6 +46,7 @@ function evaluate(roots) {
       roots.backend,
       'src/media/media.controller.ts',
     ),
+    backendCartController: read(roots.backend, 'src/cart/cart.controller.ts'),
     backendCatalogPresentation: read(
       roots.backend,
       'src/catalog/catalog.presentation.ts',
@@ -132,6 +133,13 @@ function evaluate(roots) {
       /model MediaAsset\s*\{/.test(source.backendSchema) &&
       /@Put\('products\/:id\/media'\)/.test(source.backendMediaController) &&
       /gallery/.test(source.backendCatalogPresentation),
+    'customer-cart':
+      /@Controller\('cart'\)/.test(source.backendCartController) &&
+      /@Put\('items'\)/.test(source.backendCartController) &&
+      /@Get\('quote'\)/.test(source.backendCartController) &&
+      /model Cart\s*\{/.test(source.backendSchema) &&
+      /model CartItem\s*\{/.test(source.backendSchema) &&
+      /ApiCheckoutQuote/.test(source.storefrontContracts),
     'commerce-future':
       /ApiCheckoutQuote/.test(source.storefrontContracts) &&
       !fs.existsSync(
