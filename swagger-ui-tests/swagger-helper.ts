@@ -16,6 +16,7 @@ export async function swaggerExecute(
   body?: unknown,
   pathParams: Params = {},
   queryParams: Params = {},
+  headerParams: Params = {},
 ): Promise<Response> {
   const escaped = endpoint.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
   const operation = page
@@ -38,6 +39,7 @@ export async function swaggerExecute(
   for (const [location, values] of [
     ['path', pathParams],
     ['query', queryParams],
+    ['header', headerParams],
   ] as const) {
     for (const [key, value] of Object.entries(values)) {
       const row = operation.locator(
@@ -55,6 +57,12 @@ export async function swaggerExecute(
         await input.selectOption(String(value))
       } else {
         await input.fill(String(value))
+        // Swagger UI uses controlled React inputs for required headers.
+        // Commit that edit before Execute; other parameter flows stay intact.
+        if (location === 'header') {
+          await input.press('Tab')
+          await expect(input, `header ${key} must retain its value`).toHaveValue(String(value))
+        }
       }
     }
   }
@@ -117,15 +125,28 @@ export async function swaggerExecute(
         { timeout: 25_000 },
       ),
       operation.getByRole('button', { name: 'Execute', exact: true }).click(),
-    ]).catch((error: unknown) => {
+    ]).catch(async (error: unknown) => {
+      // Collect safe form diagnostics without printing capability/JWT values.
+      // The Playwright screenshot/trace retains full UI state locally.
+      const invalidFields = await operation.locator('input:invalid, textarea:invalid, select:invalid, [aria-invalid="true"]').count().catch(() => -1)
+      const validationRows = await operation.locator('.errors-wrapper, .parameter__error, .validation-errors').count().catch(() => -1)
+      const disabledExecute = await operation.getByRole('button', { name: 'Execute', exact: true }).isDisabled().catch(() => false)
       const details = observed.length
         ? observed.join('; ')
-        : 'No matching-path HTTP response was observed. Swagger may have blocked the request at the form-validation layer.'
+        : `No matching-path response; invalidFields=${invalidFields}, validationRows=${validationRows}, executeDisabled=${disabledExecute}. See local Playwright screenshot/trace for Swagger form validation.`
       throw new Error(
         `Swagger Execute failed: ${method} ${actualPath}; ${details}`,
         { cause: error },
       )
     })
+    // Catch Swagger UI form/header regressions before trusting the HTTP status.
+    // Sensitive header values are asserted locally, never logged.
+    for (const [name, value] of Object.entries(headerParams)) {
+      expect(
+        result.request().headers()[name.toLowerCase()],
+        `Swagger must actually send the ${name} header`,
+      ).toBe(String(value))
+    }
     expect(result.status(), `${method} ${actualPath}`).toBe(expectedStatus)
     const live = operation.locator('.live-responses-table')
     await expect(live).toBeVisible()
@@ -148,15 +169,44 @@ export async function openSwagger(page: Page): Promise<void> {
   await expect(page.locator('.swagger-ui .opblock').first()).toBeVisible()
 }
 
-export async function authorizeInSwagger(
+/** Authorize only the named security scheme. The UI now has two schemes:
+ * customer JWT and an independent guest API-key capability. Never assume
+ * that the first modal input is the intended security scheme.
+ */
+async function authorizeSchemeInSwagger(
   page: Page,
+  schemeName: 'access-token' | 'guest-cart-token',
   token: string,
 ): Promise<void> {
   await page.locator('.swagger-ui .scheme-container button.authorize').click()
   const modal = page.locator('.dialog-ux')
   await expect(modal).toBeVisible()
-  await expect(modal.locator('.auth-container input').first()).toBeVisible()
-  await modal.locator('.auth-container input').first().fill(token)
-  await modal.locator('.auth-container button.authorize').click()
-  await modal.locator('button.close-modal').click()
+  const scheme = modal.locator('.auth-container').filter({ hasText: schemeName })
+  await expect(scheme, `Authorize ${schemeName} independently`).toHaveCount(1)
+  // Swagger's authorization modal shows Logout for a scheme that already
+  // has a token. Clear it before entering a replacement invalid/valid token.
+  // The Swagger UI auth dialog's button has a stable CSS class `authorize`,
+  // but its computed accessible name is not guaranteed to be exactly
+  // "Authorize" (particularly for API-key schemes). The strict role/name
+  // selector previously waited until the entire 4-minute test timed out.
+  // Both schemes render the same auth-container controls.
+  const logout = scheme.locator('button.logout')
+  if (await logout.count()) await logout.click({ timeout: 5_000 })
+  const input = scheme.locator('input').first()
+  await expect(input).toBeVisible({ timeout: 5_000 })
+  await input.fill(token)
+  const submit = scheme.locator('button.authorize')
+  await expect(submit, `${schemeName} credential submit control`).toHaveCount(1, { timeout: 5_000 })
+  await expect(submit).toBeVisible({ timeout: 5_000 })
+  await expect(submit).toBeEnabled({ timeout: 5_000 })
+  await submit.click({ timeout: 5_000 })
+  await modal.locator('button.close-modal').click({ timeout: 5_000 })
+}
+
+export async function authorizeInSwagger(page: Page, token: string): Promise<void> {
+  await authorizeSchemeInSwagger(page, 'access-token', token)
+}
+
+export async function authorizeGuestCartInSwagger(page: Page, token: string): Promise<void> {
+  await authorizeSchemeInSwagger(page, 'guest-cart-token', token)
 }

@@ -1,6 +1,6 @@
 import { plainToInstance } from 'class-transformer'
 import { validate } from 'class-validator'
-import { SetCartItemDto } from './cart.dto'
+import { MergeGuestCartDto, SetCartItemDto } from './cart.dto'
 
 const validId = '11111111-1111-4111-8111-111111111111'
 const check = async (value: Record<string, unknown>) => {
@@ -28,5 +28,26 @@ describe('04A cart input boundaries', () => {
       { productId: validId, variantId: 'wrong', quantity: 1 },
     ])
       expect((await check(item)).length).toBeGreaterThan(0)
+  })
+})
+
+describe('04A-2 guest merge token validation', () => {
+  const valid = 'A'.repeat(43)
+  it('accepts an opaque 256-bit guest token shape', async () => {
+    expect(
+      await validate(plainToInstance(MergeGuestCartDto, { guestToken: valid })),
+    ).toHaveLength(0)
+  })
+  it('rejects missing, short, JWT-looking and non-string tokens', async () => {
+    for (const obj of [
+      {},
+      { guestToken: 'bad' },
+      { guestToken: 7 },
+      { guestToken: 'a.b.c' },
+    ]) {
+      expect(
+        (await validate(plainToInstance(MergeGuestCartDto, obj))).length,
+      ).toBeGreaterThan(0)
+    }
   })
 })

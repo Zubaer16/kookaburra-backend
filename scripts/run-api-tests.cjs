@@ -18,6 +18,7 @@ const allowed = [
   'report',
   'visual-smoke',
   'visual-db',
+  'visual-guest',
   'visual-report',
   'security',
 ]
@@ -172,7 +173,7 @@ try {
   }
   // DB and Chromium-DB suites exercise real local disk I/O in an isolated,
   // throwaway OS temporary folder; SECURITY stays on unconfigured cloudinary.
-  if (mode === 'db' || mode === 'visual-db') {
+  if (mode === 'db' || mode === 'visual-db' || mode === 'visual-guest') {
     safe.MEDIA_PROVIDER = 'disk'
     safe.MEDIA_DISK_ROOT = path.join(
       os.tmpdir(),
@@ -186,11 +187,12 @@ try {
   const cli = path.join(root, 'node_modules', '@playwright', 'test', 'cli.js')
   run(
     cli,
-    mode === 'visual-db'
+    mode === 'visual-db' || mode === 'visual-guest'
       ? [
           'test',
           '--config=playwright.swagger.config.mjs',
           '--project=visual-db',
+          ...(mode === 'visual-guest' ? ['--grep', '04A-2 Swagger Chromium: guest capability'] : []),
         ]
       : mode === 'security'
         ? ['test', '--config=playwright.api.config.mjs', '--project=security']

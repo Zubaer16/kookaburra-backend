@@ -3,8 +3,11 @@ import {
   Controller,
   Delete,
   Get,
+  HttpCode,
+  HttpStatus,
   Param,
   ParseUUIDPipe,
+  Post,
   Put,
   Req,
   UseGuards,
@@ -24,7 +27,12 @@ import { AccessGuard } from '../auth/access.guard'
 import { AuthenticatedRequest } from '../auth/auth.types'
 import { CartService } from './cart.service'
 import { CustomerCartGuard } from './cart.customer.guard'
-import { CartQuoteResponseDto, SetCartItemDto } from './cart.dto'
+import { GuestCartService } from './guest-cart.service'
+import {
+  CartQuoteResponseDto,
+  MergeGuestCartDto,
+  SetCartItemDto,
+} from './cart.dto'
 
 @ApiTags('Cart / Customer')
 @Controller('cart')
@@ -33,7 +41,26 @@ import { CartQuoteResponseDto, SetCartItemDto } from './cart.dto'
 @ApiUnauthorizedResponse({ description: 'Missing or invalid JWT bearer token' })
 @ApiForbiddenResponse({ description: 'Not a customer account' })
 export class CartController {
-  constructor(private readonly cart: CartService) {}
+  constructor(
+    private readonly cart: CartService,
+    private readonly guest: GuestCartService,
+  ) {}
+
+  @Post('merge')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary:
+      'Atomically merge an anonymous cart into this JWT-authenticated customer cart; same-token retries do not double-add',
+  })
+  @ApiOkResponse({ type: CartQuoteResponseDto })
+  @ApiBadRequestResponse({ description: 'Invalid guest capability format' })
+  @ApiConflictResponse({
+    description:
+      'Invalid item, unavailable stock, currency mismatch, full cart or token already consumed by another customer',
+  })
+  merge(@Req() req: AuthenticatedRequest, @Body() body: MergeGuestCartDto) {
+    return this.guest.merge(req.authUser!.id, body.guestToken)
+  }
 
   @Get()
   @ApiOperation({

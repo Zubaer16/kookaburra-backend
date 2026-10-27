@@ -48,6 +48,7 @@ model User {
   auditEvents  AuditEvent[]
   staffRoleAssignment StaffRoleAssignment?
   cart Cart?
+  mergedGuestCarts GuestCart[]
 
   @@map("users")
 }
@@ -120,6 +121,7 @@ model Product {
   categories     ProductCategory[]
   media          ProductMedia[]
   cartItems     CartItem[]
+  guestCartItems GuestCartItem[]
   createdAt      DateTime       @default(now()) @map("created_at")
   updatedAt      DateTime       @updatedAt @map("updated_at")
 
@@ -137,6 +139,7 @@ model ProductVariant {
   stockOnHand Int      @default(0) @map("stock_on_hand")
   inventoryBalance InventoryBalance?
   cartItems   CartItem[]
+  guestCartItems GuestCartItem[]
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
 
@@ -356,4 +359,39 @@ model CartItem {
   @@index([productId])
   @@index([variantId])
   @@map("cart_items")
+}
+
+// Anonymous cart capability: token is returned ONCE, only its SHA-256 hash is stored.
+// Guest ownership is never inferred from email, IP, User-Agent, or browser cookies.
+model GuestCart {
+  id           String    @id @default(uuid()) @db.Uuid
+  tokenHash    String    @unique @map("token_hash") @db.VarChar(64)
+  expiresAt    DateTime  @map("expires_at")
+  mergedUserId String?   @map("merged_user_id") @db.Uuid
+  mergedUser   User?     @relation(fields: [mergedUserId], references: [id], onDelete: SetNull)
+  mergedAt     DateTime? @map("merged_at")
+  items        GuestCartItem[]
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+
+  @@index([expiresAt])
+  @@map("guest_carts")
+}
+
+model GuestCartItem {
+  id          String          @id @default(uuid()) @db.Uuid
+  guestCartId String          @map("guest_cart_id") @db.Uuid
+  guestCart   GuestCart       @relation(fields: [guestCartId], references: [id], onDelete: Cascade)
+  productId   String          @map("product_id") @db.Uuid
+  product     Product         @relation(fields: [productId], references: [id], onDelete: Cascade)
+  variantId   String?         @map("variant_id") @db.Uuid
+  variant     ProductVariant? @relation(fields: [variantId], references: [id], onDelete: Cascade)
+  quantity    Int
+  createdAt   DateTime        @default(now()) @map("created_at")
+  updatedAt   DateTime        @updatedAt @map("updated_at")
+
+  @@unique([guestCartId, productId, variantId], map: "guest_cart_items_line_key")
+  @@index([productId])
+  @@index([variantId])
+  @@map("guest_cart_items")
 }

@@ -13,7 +13,7 @@
     "lint": "eslint .",
     "test": "jest --runInBand",
     "test:e2e": "jest --config jest.e2e.config.cjs --runInBand",
-    "check": "npm run db:generate && npm run db:validate && npm run typecheck && npm run lint && npm run test && npm run test:e2e && npm run build",
+    "check": "npm run db:generate && npm run db:validate && npm run typecheck && npm run typecheck:swagger:syntax && npm run lint && npm run test && npm run test:e2e && npm run build",
     "db:generate": "prisma generate",
     "db:validate": "prisma validate",
     "db:migrate": "prisma migrate dev",
@@ -26,6 +26,7 @@
     "test:api:report": "node scripts/run-api-tests.cjs report",
     "test:api:visual:smoke": "npm run build && node scripts/run-api-tests.cjs visual-smoke",
     "test:api:visual:all": "npm run build && node scripts/run-api-tests.cjs visual-db",
+    "test:api:visual:guest": "npm run build && node scripts/run-api-tests.cjs visual-guest",
     "test:api:visual:report": "node scripts/run-api-tests.cjs visual-report",
     "test:api:security": "npm run build && node scripts/run-api-tests.cjs security",
     "media:cleanup": "npm run build && node -r dotenv/config dist/tools/media-cleanup.js",
@@ -35,7 +36,8 @@
     "alignment:gate": "node scripts/check-frontend-alignment.cjs --strict",
     "alignment:test": "node --test scripts/check-frontend-alignment.spec.cjs",
     "media:renditions": "npm run build && node -r dotenv/config dist/tools/media-renditions.js",
-    "media:reconcile": "npm run build && node -r dotenv/config dist/tools/media-reconcile.js"
+    "media:reconcile": "npm run build && node -r dotenv/config dist/tools/media-reconcile.js",
+    "typecheck:swagger:syntax": "node scripts/check-swagger-syntax.cjs"
   },
   "engines": {
     "node": ">=24.11.0 <25"

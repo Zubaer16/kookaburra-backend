@@ -35,6 +35,7 @@ export async function createHttpApp(): Promise<INestApplication> {
       'X-CSRF-Token',
       'Idempotency-Key',
       'X-Media-Upload-Token',
+      'X-Guest-Cart-Token',
     ],
     origin(
       origin: string | undefined,
@@ -62,6 +63,16 @@ export async function createHttpApp(): Promise<INestApplication> {
       .addBearerAuth(
         { type: 'http', scheme: 'bearer', bearerFormat: 'JWT' },
         'access-token',
+      )
+      .addApiKey(
+        {
+          type: 'apiKey',
+          in: 'header',
+          name: 'X-Guest-Cart-Token',
+          description:
+            'Opaque anonymous guest-cart capability. Separate from customer JWT.',
+        },
+        'guest-cart-token',
       )
       .addTag('System / Health', 'Health liveness and status')
       .addTag('Authentication / Customer', 'Customer identity and sessions')
@@ -94,11 +105,55 @@ export async function createHttpApp(): Promise<INestApplication> {
         'Customer-owned persistent cart and live server-side quote (no reservation)',
       )
       .addTag(
+        'Cart / Guest',
+        'Anonymous cart capability and one-time secure merge (no JWT authentication)',
+      )
+      .addTag(
         'Workspace / Admin',
         'JWT-only staff workspace roles and persistent permission grants',
       )
       .build()
     const document = SwaggerModule.createDocument(app, docConfig)
+    // Guest capability is declared as an OpenAPI apiKey *security scheme*.
+    // Some Swagger metadata sources may still emit a second editable header
+    // parameter for the same value. Swagger UI then blocks Execute with
+    // "Required field is not provided" even after Authorize succeeds.
+    // Normalize the documentation only; HTTP authentication is unchanged.
+    const isGuestCapabilityParameter = (parameter: unknown): boolean =>
+      typeof parameter === 'object' &&
+      parameter !== null &&
+      'in' in parameter &&
+      parameter.in === 'header' &&
+      'name' in parameter &&
+      typeof parameter.name === 'string' &&
+      parameter.name.toLowerCase() === 'x-guest-cart-token'
+    const guestProtectedOperations = [
+      ['get', '/v1/guest-cart'],
+      ['get', '/v1/guest-cart/quote'],
+      ['put', '/v1/guest-cart/items'],
+      ['delete', '/v1/guest-cart/items/{id}'],
+      ['delete', '/v1/guest-cart/items'],
+      ['delete', '/v1/guest-cart'],
+    ] as const
+    for (const [method, path] of guestProtectedOperations) {
+      const pathItem = document.paths[path]
+      const operation = pathItem?.[method]
+      if (!operation)
+        throw new Error(
+          `Swagger guest cart operation missing: ${method.toUpperCase()} ${path}`,
+        )
+      if (pathItem.parameters) {
+        pathItem.parameters = pathItem.parameters.filter(
+          (parameter) => !isGuestCapabilityParameter(parameter),
+        )
+      }
+      if (operation.parameters) {
+        operation.parameters = operation.parameters.filter(
+          (parameter) => !isGuestCapabilityParameter(parameter),
+        )
+      }
+      operation.security = [{ 'guest-cart-token': [] }]
+    }
     SwaggerModule.setup('docs', app, document, {
       swaggerOptions: {
         persistAuthorization: false,

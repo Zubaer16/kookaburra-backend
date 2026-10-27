@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger'
-import { IsInt, IsUUID, Max, Min, ValidateIf } from 'class-validator'
+import { IsInt, IsUUID, Matches, Max, Min, ValidateIf } from 'class-validator'
 
 /** PUT means set the absolute quantity; retries do not double-add. */
 export class SetCartItemDto {
@@ -63,4 +63,25 @@ export class CartQuoteResponseDto {
     description: 'Live calculation time; quote does not reserve stock.',
   })
   quotedAt!: string
+}
+
+/** Opaque guest cart capability, NOT a customer access JWT. Never log this token. */
+export class MergeGuestCartDto {
+  @ApiProperty({
+    description:
+      'The 43-character guest capability returned by POST /v1/guest-cart',
+    minLength: 43,
+    maxLength: 43,
+  })
+  @Matches(/^[A-Za-z0-9_-]{43}$/)
+  guestToken!: string
+}
+
+export class GuestCartCreatedDto {
+  @ApiProperty({
+    description: 'Random capability shown only once; do not include in URLs',
+  })
+  guestToken!: string
+  @ApiProperty({ format: 'uuid' }) guestCartId!: string
+  @ApiProperty({ type: String, format: 'date-time' }) expiresAt!: string
 }

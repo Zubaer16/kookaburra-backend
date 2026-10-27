@@ -47,6 +47,7 @@ function evaluate(roots) {
       'src/media/media.controller.ts',
     ),
     backendCartController: read(roots.backend, 'src/cart/cart.controller.ts'),
+    backendGuestController: read(roots.backend, 'src/cart/guest-cart.controller.ts'),
     backendCatalogPresentation: read(
       roots.backend,
       'src/catalog/catalog.presentation.ts',
@@ -139,6 +140,13 @@ function evaluate(roots) {
       /@Get\('quote'\)/.test(source.backendCartController) &&
       /model Cart\s*\{/.test(source.backendSchema) &&
       /model CartItem\s*\{/.test(source.backendSchema) &&
+      /ApiCheckoutQuote/.test(source.storefrontContracts),
+    'guest-cart':
+      /@Controller\('guest-cart'\)/.test(source.backendGuestController) &&
+      /@Put\('items'\)/.test(source.backendGuestController) &&
+      /@Post\('merge'\)/.test(source.backendCartController) &&
+      /model GuestCart\s*\{/.test(source.backendSchema) &&
+      /model GuestCartItem\s*\{/.test(source.backendSchema) &&
       /ApiCheckoutQuote/.test(source.storefrontContracts),
     'commerce-future':
       /ApiCheckoutQuote/.test(source.storefrontContracts) &&
