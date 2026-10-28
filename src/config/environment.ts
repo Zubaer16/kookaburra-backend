@@ -2,6 +2,7 @@ import path from 'node:path'
 export type Environment = {
   STRIPE_TEST_ENABLED: boolean
   STRIPE_TEST_CHECKOUT_ENABLED: boolean
+  STRIPE_TEST_REFUNDS_ENABLED: boolean
   STRIPE_TEST_SECRET_KEY: string
   STRIPE_TEST_WEBHOOK_SECRET: string
   NODE_ENV: 'development' | 'test' | 'production'
@@ -231,6 +232,14 @@ export function validateEnvironment(raw: Record<string, unknown>): Environment {
     throw new Error(
       'TEST checkout requires enabled Stripe TEST and non-production environment',
     )
+  const refundFlag = raw.STRIPE_TEST_REFUNDS_ENABLED ?? 'false'
+  if (![true, false, 'true', 'false'].includes(refundFlag as string | boolean))
+    throw new Error('STRIPE_TEST_REFUNDS_ENABLED must be true or false')
+  const refundsEnabled = refundFlag === true || refundFlag === 'true'
+  if (refundsEnabled && (!stripeEnabled || mode === 'production'))
+    throw new Error(
+      'TEST refunds require enabled Stripe TEST and non-production environment',
+    )
   const stripeKey =
     typeof raw.STRIPE_TEST_SECRET_KEY === 'string'
       ? raw.STRIPE_TEST_SECRET_KEY
@@ -248,6 +257,7 @@ export function validateEnvironment(raw: Record<string, unknown>): Environment {
   return {
     STRIPE_TEST_ENABLED: stripeEnabled,
     STRIPE_TEST_CHECKOUT_ENABLED: checkoutEnabled,
+    STRIPE_TEST_REFUNDS_ENABLED: refundsEnabled,
     STRIPE_TEST_SECRET_KEY: stripeKey,
     STRIPE_TEST_WEBHOOK_SECRET: stripeWebhook,
     MEDIA_CDN_CF_ZONE_ID: cdnZoneId,

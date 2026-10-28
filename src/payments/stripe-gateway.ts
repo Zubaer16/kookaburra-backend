@@ -79,6 +79,156 @@ export class StripeTestGateway {
       )
     return { id: intent.id, status: intent.status }
   }
+  /** TEST-only refund with a stable per-ledger-entry idempotency key. */
+  async createRefund(input: {
+    refundRequestId: string
+    orderId: string
+    paymentIntentId: string
+    amountMinor: number
+    currency: string
+    reason: string
+    idempotencyKey: string
+  }): Promise<VerifiedStripeRefund> {
+    const key = this.refundKey()
+    if (
+      !/^pi_[A-Za-z0-9]{6,120}$/.test(input.paymentIntentId) ||
+      !/^[0-9a-f-]{36}$/i.test(input.refundRequestId) ||
+      !/^[0-9a-f-]{36}$/i.test(input.orderId) ||
+      !Number.isSafeInteger(input.amountMinor) ||
+      input.amountMinor < 1 ||
+      !/^[A-Z]{3}$/.test(input.currency) ||
+      !/^kb-test-refund-[0-9a-f-]{36}$/i.test(input.idempotencyKey)
+    )
+      throw new ServiceUnavailableException('Invalid TEST refund request')
+    const reason = (
+      {
+        CUSTOMER_REQUEST: 'requested_by_customer',
+        DUPLICATE: 'duplicate',
+        FRAUDULENT: 'fraudulent',
+      } as Record<string, string>
+    )[input.reason]
+    const form = new URLSearchParams({
+      payment_intent: input.paymentIntentId,
+      amount: String(input.amountMinor),
+      'metadata[order_id]': input.orderId,
+      'metadata[refund_request_id]': input.refundRequestId,
+    })
+    if (reason) form.set('reason', reason)
+    const response = await this.refundFetch(
+      'https://api.stripe.com/v1/refunds',
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${key}`,
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'Idempotency-Key': input.idempotencyKey,
+        },
+        body: form.toString(),
+        signal: AbortSignal.timeout(12_000),
+      },
+    )
+    const refund = this.validateRefund(response)
+    if (refund.currency !== input.currency)
+      throw new ServiceUnavailableException(
+        'Stripe TEST refund currency mismatch',
+      )
+    return refund
+  }
+
+  /** A fresh provider read is always required before recording final status. */
+  async retrieveRefund(refundId: string): Promise<VerifiedStripeRefund> {
+    const key = this.refundKey()
+    if (!/^re_[A-Za-z0-9]{6,120}$/.test(refundId))
+      throw new ServiceUnavailableException('Invalid TEST refund identity')
+    const result = await this.refundFetch(
+      `https://api.stripe.com/v1/refunds/${refundId}`,
+      {
+        headers: { Authorization: `Bearer ${key}` },
+        signal: AbortSignal.timeout(12_000),
+      },
+    )
+    const refund = this.validateRefund(result)
+    if (refund.id !== refundId)
+      throw new ServiceUnavailableException('Stripe TEST refund ID mismatch')
+    return refund
+  }
+
+  private refundKey(): string {
+    const key = this.config.get('STRIPE_TEST_SECRET_KEY', { infer: true })
+    if (
+      this.config.get('NODE_ENV', { infer: true }) === 'production' ||
+      !this.config.get('STRIPE_TEST_ENABLED', { infer: true }) ||
+      !this.config.get('STRIPE_TEST_REFUNDS_ENABLED', { infer: true }) ||
+      !/^sk_test_[A-Za-z0-9]{8,}$/.test(key)
+    )
+      throw new ServiceUnavailableException('Stripe TEST refunds are disabled')
+    return key
+  }
+
+  private async refundFetch(
+    url: string,
+    options: RequestInit,
+  ): Promise<unknown> {
+    let response: Response
+    try {
+      response = await fetch(url, options)
+    } catch {
+      throw new ServiceUnavailableException(
+        'Stripe TEST refund API unavailable',
+      )
+    }
+    if (!response.ok)
+      throw new ServiceUnavailableException(
+        'Stripe TEST refund needs provider reconciliation',
+      )
+    try {
+      return (await response.json()) as unknown
+    } catch {
+      throw new ServiceUnavailableException(
+        'Invalid Stripe TEST refund response',
+      )
+    }
+  }
+
+  private validateRefund(value: unknown): VerifiedStripeRefund {
+    const obj = value as Record<string, unknown> | null
+    const metadata =
+      obj && typeof obj.metadata === 'object' && obj.metadata !== null
+        ? (obj.metadata as Record<string, unknown>)
+        : null
+    if (
+      !obj ||
+      obj.object !== 'refund' ||
+      typeof obj.id !== 'string' ||
+      !/^re_[A-Za-z0-9]{6,120}$/.test(obj.id) ||
+      // Stripe's Refund object does not consistently include livemode.
+      // Enforce TEST credentials in refundKey(), and reject explicit live flags.
+      obj.livemode === true ||
+      !Number.isSafeInteger(obj.amount) ||
+      (obj.amount as number) < 1 ||
+      typeof obj.currency !== 'string' ||
+      !/^[a-z]{3}$/.test(obj.currency) ||
+      typeof obj.payment_intent !== 'string' ||
+      !/^pi_[A-Za-z0-9]{6,120}$/.test(obj.payment_intent) ||
+      typeof obj.status !== 'string' ||
+      typeof metadata?.order_id !== 'string' ||
+      typeof metadata?.refund_request_id !== 'string'
+    )
+      throw new ServiceUnavailableException(
+        'Stripe TEST refund failed invariant verification',
+      )
+    return {
+      id: obj.id,
+      status: obj.status,
+      amountMinor: obj.amount as number,
+      currency: (obj.currency as string).toUpperCase(),
+      paymentIntentId: obj.payment_intent,
+      orderId: metadata.order_id,
+      refundRequestId: metadata.refund_request_id,
+      livemode: false,
+    }
+  }
+
   /** Cancel a closed order's unused TEST PaymentIntent. This never refunds a paid charge. */
   async cancel(
     intentId: string,
@@ -292,5 +442,16 @@ export type VerifiedStripeIntentState = {
   amountReceivedMinor: number
   currency: string
   orderId: string | null
+  livemode: false
+}
+
+export type VerifiedStripeRefund = {
+  id: string
+  status: string
+  amountMinor: number
+  currency: string
+  paymentIntentId: string
+  orderId: string
+  refundRequestId: string
   livemode: false
 }

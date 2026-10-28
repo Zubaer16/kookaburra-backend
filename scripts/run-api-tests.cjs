@@ -62,6 +62,7 @@ function baseEnv() {
     MEDIA_NAMESPACE: 'projects/kookaburra/products',
     MEDIA_PROVIDER: 'cloudinary',
     STRIPE_TEST_ENABLED: 'false',
+    STRIPE_TEST_REFUNDS_ENABLED: 'false',
     STRIPE_TEST_CHECKOUT_ENABLED: 'false',
     STRIPE_TEST_SECRET_KEY: '',
     STRIPE_TEST_WEBHOOK_SECRET: '',

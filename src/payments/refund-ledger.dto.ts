@@ -45,9 +45,10 @@ export class RefundRequestResponseDto {
   status!: string
   @ApiProperty({
     example: false,
-    description: 'No provider refund is created by this request',
+    description:
+      'True only once the operator worker has recorded a Stripe TEST refund ID',
   })
-  providerRefundSubmitted!: false
+  providerRefundSubmitted!: boolean
   @ApiProperty({
     example: false,
     description: 'Stock is never returned by this operation',

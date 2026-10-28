@@ -122,7 +122,7 @@ export async function createHttpApp(): Promise<INestApplication> {
       )
       .addTag(
         'Payments / Admin',
-        'OWNER-only refund request ledger; provider refunds and stock returns are not executed',
+        'OWNER-approved refund ledger; explicit TEST-only worker verifies provider refunds; no automatic restock',
       )
       .addTag(
         'Payments / Webhooks',

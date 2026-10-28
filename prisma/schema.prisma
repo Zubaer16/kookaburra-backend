@@ -620,8 +620,8 @@ model PaymentTransaction {
   @@map("payment_transactions")
 }
 
-// 04C-2B2C1: Refund authorisation/amount-allocation ledger ONLY.
-// No provider refund is submitted and no stock is returned by this phase.
+// 04C-2B2C2: OWNER-approved amount allocations are executed by an explicit
+// Stripe TEST worker; provider-refetched status determines success. No restock.
 enum RefundRequestStatus {
   REQUESTED
   PROCESSING
@@ -643,11 +643,18 @@ model RefundRequest {
   status               RefundRequestStatus @default(REQUESTED)
   requestedById        String @map("requested_by_id") @db.Uuid
   providerRefundId     String? @unique @map("provider_refund_id") @db.VarChar(128)
+  providerStatus       String? @map("provider_status") @db.VarChar(30)
+  processingStartedAt  DateTime? @map("processing_started_at")
+  firstSubmittedAt     DateTime? @map("first_submitted_at")
+  retryAt              DateTime @default(now()) @map("retry_at")
+  attempts             Int @default(0)
+  confirmedAt          DateTime? @map("confirmed_at")
   createdAt            DateTime @default(now()) @map("created_at")
   updatedAt            DateTime @updatedAt @map("updated_at")
 
   @@unique([orderId, requestId], map: "refund_requests_order_request_key")
   @@index([orderId, status])
+  @@index([status, retryAt])
   @@index([paymentTransactionId])
   @@map("refund_requests")
 }

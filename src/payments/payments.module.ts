@@ -11,6 +11,7 @@ import { PaymentSettlementService } from './payment-settlement.service'
 import { PaymentCancellationService } from './payment-cancellation.service'
 import { PaymentTestCompletionService } from './payment-test-completion.service'
 import { RefundLedgerService } from './refund-ledger.service'
+import { RefundExecutionService } from './refund-execution.service'
 import {
   RefundLedgerOwnerController,
   RefundLedgerCustomerController,
@@ -31,6 +32,7 @@ import {
     PaymentCancellationService,
     PaymentTestCompletionService,
     RefundLedgerService,
+    RefundExecutionService,
     CustomerCartGuard,
   ],
 })

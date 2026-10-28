@@ -43,7 +43,7 @@ export class RefundLedgerOwnerController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary:
-      'OWNER-only refund amount reservation; ledger ONLY, no Stripe refund or stock return',
+      'OWNER-only refund approval/amount reservation; Stripe TEST worker executes separately; no stock return',
   })
   @ApiOkResponse({ type: RefundRequestResponseDto })
   @ApiConflictResponse({

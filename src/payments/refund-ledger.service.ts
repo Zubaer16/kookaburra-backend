@@ -27,6 +27,7 @@ export class RefundLedgerService {
     currency: string
     reason: string
     status: string
+    providerRefundId?: string | null
   }) {
     return {
       id: record.id,
@@ -36,7 +37,7 @@ export class RefundLedgerService {
       currency: record.currency,
       reason: record.reason,
       status: record.status,
-      providerRefundSubmitted: false as const,
+      providerRefundSubmitted: !!record.providerRefundId,
       stockReturned: false as const,
     }
   }

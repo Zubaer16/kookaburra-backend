@@ -5,6 +5,25 @@ describe('environment configuration', () => {
   it('keeps Stripe test prep disabled by default; refuses live credentials', () => {
     expect(validateEnvironment({}).STRIPE_TEST_ENABLED).toBe(false)
     expect(validateEnvironment({}).STRIPE_TEST_CHECKOUT_ENABLED).toBe(false)
+    expect(validateEnvironment({}).STRIPE_TEST_REFUNDS_ENABLED).toBe(false)
+    expect(() =>
+      validateEnvironment({ STRIPE_TEST_REFUNDS_ENABLED: 'true' }),
+    ).toThrow('TEST refunds')
+    expect(() =>
+      validateEnvironment({ STRIPE_TEST_REFUNDS_ENABLED: 'yes' }),
+    ).toThrow()
+    expect(() =>
+      validateEnvironment({
+        STRIPE_TEST_REFUNDS_ENABLED: 'true',
+        STRIPE_TEST_ENABLED: 'true',
+        STRIPE_TEST_SECRET_KEY: 'sk_test_TESTONLY123456789012345',
+        STRIPE_TEST_WEBHOOK_SECRET: 'whsec_TESTONLY123456789012345',
+        NODE_ENV: 'production',
+        CORS_ORIGINS: 'https://shop.example',
+        DATABASE_URL: 'postgresql://example/db',
+        JWT_ACCESS_SECRET: 'a'.repeat(40),
+      }),
+    ).toThrow('TEST refunds')
     expect(() =>
       validateEnvironment({ STRIPE_TEST_CHECKOUT_ENABLED: 'true' }),
     ).toThrow('TEST checkout')
