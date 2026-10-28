@@ -40,3 +40,6 @@
 - [ ] OpenAPI-generated clients for Admin/Storefront/Flutter.
 - [ ] Remove fixtures and verify real workflows against isolated DB.
 - [ ] E2E/security/load/backup/recovery tests, Vercel and VPS deploy tests.
+
+- [ ] Phase 04C-2A TEST-mode payment preparation + raw signed webhook receipts implemented; real Windows acceptance pending. **Not payable**; no card confirmation/capture, order PAID, physical deduction or payout.
+- [ ] Phase 04C-2B: settlement/reconciliation, provider cancellation, payment expiry coordination, charge/refund, stock finalization.

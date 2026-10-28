@@ -10,7 +10,7 @@ import { requestLogger } from './http/request-logger.middleware'
 
 /** Identical bootstrap for Vercel, VPS, tests, and local development. */
 export async function createHttpApp(): Promise<INestApplication> {
-  const app = await NestFactory.create(AppModule)
+  const app = await NestFactory.create(AppModule, { rawBody: true })
   const config = app.get(ConfigService<Environment, true>)
   const mode = config.get('NODE_ENV', { infer: true })
   const origins = config
@@ -115,6 +115,14 @@ export async function createHttpApp(): Promise<INestApplication> {
       .addTag(
         'Orders / Customer',
         'Owned immutable unpaid orders, pending allocation and safe cancellation',
+      )
+      .addTag(
+        'Payments / Customer',
+        'Stripe TEST-only intent preparation; card confirmation disabled',
+      )
+      .addTag(
+        'Payments / Webhooks',
+        'Signed Stripe event receipts; no settlement or stock mutation',
       )
       .addTag(
         'Checkout / Admin',

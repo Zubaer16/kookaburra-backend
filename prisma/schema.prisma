@@ -500,6 +500,7 @@ model Order {
   updatedAt         DateTime    @updatedAt @map("updated_at")
   lines             OrderLine[]
   statusEvents      OrderStatusEvent[]
+  paymentAttempt    PaymentAttempt?
 
   @@unique([customerId, requestId], map: "orders_customer_request_key")
   @@index([status, paymentDeadlineAt])
@@ -535,4 +536,46 @@ model OrderStatusEvent {
 
   @@index([orderId, createdAt])
   @@map("order_status_events")
+}
+
+// 04C-2A: test-mode Stripe intent is PREPARATION ONLY, never a payable checkout.
+// Future settlement must reconcile a verified intent before touching orders or stock.
+enum PaymentAttemptStatus {
+  CREATING
+  READY
+  REQUIRES_REVIEW
+}
+
+model PaymentAttempt {
+  id                String @id @default(uuid()) @db.Uuid
+  orderId           String @unique @map("order_id") @db.Uuid
+  order             Order @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  provider          String @default("STRIPE_TEST") @db.VarChar(30)
+  providerIntentId  String? @unique @map("provider_intent_id") @db.VarChar(128)
+  idempotencyKey    String @unique @map("idempotency_key") @db.VarChar(200)
+  status            PaymentAttemptStatus @default(CREATING)
+  amountMinor       Int @map("amount_minor")
+  currency          String @db.VarChar(3)
+  creationStartedAt DateTime @default(now()) @map("creation_started_at")
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  @@index([status, creationStartedAt])
+  @@map("payment_attempts")
+}
+
+// Signed delivery receipt only. Do not persist Stripe raw payload (PII) or
+// treat event receipt as proof that the order was paid or inventory finalized.
+model PaymentWebhookReceipt {
+  id                String @id @default(uuid()) @db.Uuid
+  providerEventId   String @unique @map("provider_event_id") @db.VarChar(128)
+  eventType         String @map("event_type") @db.VarChar(120)
+  providerIntentId  String? @map("provider_intent_id") @db.VarChar(128)
+  payloadSha256     String @map("payload_sha256") @db.VarChar(64)
+  status            String @default("RECEIVED") @db.VarChar(30)
+  receivedAt        DateTime @default(now()) @map("received_at")
+
+  @@index([providerIntentId])
+  @@index([status, receivedAt])
+  @@map("payment_webhook_receipts")
 }

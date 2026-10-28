@@ -105,12 +105,24 @@ export class CatalogTestFixture {
           await this.db.outboxEvent.deleteMany({
             where: {
               eventType: {
-                in: ['order.created', 'order.cancelled', 'order.expired'],
+                in: [
+                  'order.created',
+                  'order.cancelled',
+                  'order.expired',
+                  'payment.test_intent_prepared',
+                ],
               },
               payload: { path: ['orderId'], equals: order.id },
             },
           })
         }
+        // Phase 04C-2A: FK-restricted payment attempts must be removed only
+        // for this fixture before deleting its orders (never global cleanup).
+        await this.db.paymentAttempt.deleteMany({
+          where: {
+            order: { customerId: { in: fixtureUserIds } },
+          },
+        })
         await this.db.order.deleteMany({
           where: { customerId: { in: fixtureUserIds } },
         })

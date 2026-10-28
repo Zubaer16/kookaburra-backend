@@ -1,5 +1,8 @@
 import path from 'node:path'
 export type Environment = {
+  STRIPE_TEST_ENABLED: boolean
+  STRIPE_TEST_SECRET_KEY: string
+  STRIPE_TEST_WEBHOOK_SECRET: string
   NODE_ENV: 'development' | 'test' | 'production'
   PORT: number
   CORS_ORIGINS: string
@@ -213,7 +216,22 @@ export function validateEnvironment(raw: Record<string, unknown>): Environment {
     (cdnToken.length < 20 || cdnToken.length > 512 || /\s/.test(cdnToken))
   )
     throw new Error('Invalid Cloudflare CDN API token')
+  const stripeFlag = raw.STRIPE_TEST_ENABLED ?? 'false'
+  if (![true, false, 'true', 'false'].includes(stripeFlag as string | boolean))
+    throw new Error('STRIPE_TEST_ENABLED must be true or false')
+  const stripeEnabled = stripeFlag === true || stripeFlag === 'true'
+  const stripeKey = typeof raw.STRIPE_TEST_SECRET_KEY === 'string' ? raw.STRIPE_TEST_SECRET_KEY : ''
+  const stripeWebhook = typeof raw.STRIPE_TEST_WEBHOOK_SECRET === 'string' ? raw.STRIPE_TEST_WEBHOOK_SECRET : ''
+  if (stripeKey && !/^sk_test_[A-Za-z0-9]{8,}$/.test(stripeKey))
+    throw new Error('Only Stripe test secret keys are permitted')
+  if (stripeWebhook && !/^whsec_[A-Za-z0-9]{8,}$/.test(stripeWebhook))
+    throw new Error('Invalid Stripe webhook signing secret')
+  if (stripeEnabled && (!stripeKey || !stripeWebhook))
+    throw new Error('Stripe TEST mode requires a test key and webhook secret')
   return {
+    STRIPE_TEST_ENABLED: stripeEnabled,
+    STRIPE_TEST_SECRET_KEY: stripeKey,
+    STRIPE_TEST_WEBHOOK_SECRET: stripeWebhook,
     MEDIA_CDN_CF_ZONE_ID: cdnZoneId,
     MEDIA_CDN_CF_API_TOKEN: cdnToken,
     MEDIA_PROVIDER: provider,
