@@ -25,6 +25,15 @@ test('04C-2A Swagger Chromium: test payment preparation disabled safely and JWT 
       { orderId: '10000000-0000-4000-8000-000000000000' },
     )
     expect(resp.status()).toBe(503)
+    // TEST-only card simulation is separately opt-in and disabled in the API harness.
+    await swaggerExecute(
+      page,
+      'POST',
+      '/v1/payments/orders/{orderId}/test-complete',
+      503,
+      undefined,
+      { orderId: '10000000-0000-4000-8000-000000000000' },
+    )
     // GET always enforces order ownership even without configured provider.
     await swaggerExecute(
       page,

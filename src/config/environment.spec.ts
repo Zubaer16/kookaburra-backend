@@ -4,14 +4,39 @@ import { validateEnvironment } from './environment'
 describe('environment configuration', () => {
   it('keeps Stripe test prep disabled by default; refuses live credentials', () => {
     expect(validateEnvironment({}).STRIPE_TEST_ENABLED).toBe(false)
-    expect(() => validateEnvironment({ STRIPE_TEST_ENABLED: 'true' })).toThrow('Stripe TEST')
-    expect(() => validateEnvironment({ STRIPE_TEST_SECRET_KEY: 'sk_live_not_allowed123' })).toThrow()
+    expect(validateEnvironment({}).STRIPE_TEST_CHECKOUT_ENABLED).toBe(false)
+    expect(() =>
+      validateEnvironment({ STRIPE_TEST_CHECKOUT_ENABLED: 'true' }),
+    ).toThrow('TEST checkout')
+    expect(() =>
+      validateEnvironment({ STRIPE_TEST_CHECKOUT_ENABLED: 'yes' }),
+    ).toThrow()
+    expect(() =>
+      validateEnvironment({
+        STRIPE_TEST_CHECKOUT_ENABLED: 'true',
+        STRIPE_TEST_ENABLED: 'true',
+        STRIPE_TEST_SECRET_KEY: 'sk_test_TESTONLY123456789012345',
+        STRIPE_TEST_WEBHOOK_SECRET: 'whsec_TESTONLY123456789012345',
+        NODE_ENV: 'production',
+        CORS_ORIGINS: 'https://shop.example',
+        DATABASE_URL: 'postgresql://example/db',
+        JWT_ACCESS_SECRET: 'a'.repeat(40),
+      }),
+    ).toThrow('TEST checkout')
+    expect(() => validateEnvironment({ STRIPE_TEST_ENABLED: 'true' })).toThrow(
+      'Stripe TEST',
+    )
+    expect(() =>
+      validateEnvironment({ STRIPE_TEST_SECRET_KEY: 'sk_live_not_allowed123' }),
+    ).toThrow()
     expect(() => validateEnvironment({ STRIPE_TEST_ENABLED: 'yes' })).toThrow()
-    expect(validateEnvironment({
-      STRIPE_TEST_ENABLED: 'true',
-      STRIPE_TEST_SECRET_KEY: 'sk_test_TESTONLY123456789012345',
-      STRIPE_TEST_WEBHOOK_SECRET: 'whsec_TESTONLY123456789012345',
-    }).STRIPE_TEST_ENABLED).toBe(true)
+    expect(
+      validateEnvironment({
+        STRIPE_TEST_ENABLED: 'true',
+        STRIPE_TEST_SECRET_KEY: 'sk_test_TESTONLY123456789012345',
+        STRIPE_TEST_WEBHOOK_SECRET: 'whsec_TESTONLY123456789012345',
+      }).STRIPE_TEST_ENABLED,
+    ).toBe(true)
   })
   it('uses restrictive defaults for local dev', () => {
     expect(validateEnvironment({})).toMatchObject({

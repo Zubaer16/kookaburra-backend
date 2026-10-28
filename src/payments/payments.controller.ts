@@ -22,7 +22,11 @@ import type { Request } from 'express'
 import { AccessGuard } from '../auth/access.guard'
 import { AuthenticatedRequest } from '../auth/auth.types'
 import { CustomerCartGuard } from '../cart/cart.customer.guard'
-import { PaymentPreparationResponseDto } from './payments.dto'
+import {
+  PaymentPreparationResponseDto,
+  TestCardCompletionResponseDto,
+} from './payments.dto'
+import { PaymentTestCompletionService } from './payment-test-completion.service'
 import { PaymentsService } from './payments.service'
 
 @ApiTags('Payments / Customer')
@@ -30,7 +34,25 @@ import { PaymentsService } from './payments.service'
 @Controller('payments/orders')
 @UseGuards(AccessGuard, CustomerCartGuard)
 export class PaymentCustomerController {
-  constructor(private readonly payments: PaymentsService) {}
+  constructor(
+    private readonly payments: PaymentsService,
+    private readonly testCompletion: PaymentTestCompletionService,
+  ) {}
+
+  @Post(':orderId/test-complete')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary:
+      'Explicitly enabled non-production Stripe TEST card simulation; no raw card data; signed webhook settlement still required',
+  })
+  @ApiOkResponse({ type: TestCardCompletionResponseDto })
+  @ApiUnauthorizedResponse({ description: 'Customer JWT required' })
+  testComplete(
+    @Req() req: AuthenticatedRequest,
+    @Param('orderId', ParseUUIDPipe) id: string,
+  ) {
+    return this.testCompletion.complete(req.authUser!.id, id)
+  }
 
   @Post(':orderId/prepare')
   @HttpCode(HttpStatus.OK)

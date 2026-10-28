@@ -45,3 +45,7 @@
 - [ ] Phase 04C-2B: settlement/reconciliation, provider cancellation, payment expiry coordination, charge/refund, stock finalization.
 
 - [ ] Phase 04C-2B2A: operator-only Stripe TEST provider cancellation + durable retry/review worker; implementation authored, Windows PostgreSQL/Chromium acceptance pending. No new checkout/capture/refund endpoint.
+
+### Phase 04C-2B2B (pending local acceptance)
+
+TEST-only fixed-card confirm/capture with order-expiry fencing; receipt-driven settlement unchanged. Provider refunds, real customer confirmation/3DS and recovery automation remain deferred. See `docs/PHASE04C2B2B_TEST_AUTHORIZE_CAPTURE.md`.

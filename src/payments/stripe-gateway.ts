@@ -130,6 +130,82 @@ export class StripeTestGateway {
     return this.validateIntent(intentId, result)
   }
 
+  /** Only the fixed Stripe TEST PaymentMethod. Never accepts card data or IDs from clients. */
+  async confirmTestCard(
+    intentId: string,
+    orderId: string,
+  ): Promise<VerifiedStripeIntentState> {
+    return this.postIntentAction(
+      intentId,
+      'confirm',
+      new URLSearchParams({
+        payment_method: 'pm_card_visa',
+        error_on_requires_action: 'true',
+      }),
+      `kb-test-confirm-${orderId}`,
+    )
+  }
+
+  async captureTest(
+    intentId: string,
+    orderId: string,
+  ): Promise<VerifiedStripeIntentState> {
+    return this.postIntentAction(
+      intentId,
+      'capture',
+      new URLSearchParams(),
+      `kb-test-capture-${orderId}`,
+    )
+  }
+
+  private async postIntentAction(
+    intentId: string,
+    action: 'confirm' | 'capture',
+    form: URLSearchParams,
+    idempotencyKey: string,
+  ): Promise<VerifiedStripeIntentState> {
+    const key = this.config.get('STRIPE_TEST_SECRET_KEY', { infer: true })
+    if (
+      !this.config.get('STRIPE_TEST_ENABLED', { infer: true }) ||
+      !/^sk_test_[A-Za-z0-9]{8,}$/.test(key) ||
+      !/^pi_[A-Za-z0-9]{6,120}$/.test(intentId)
+    )
+      throw new ServiceUnavailableException(
+        'Stripe TEST action disabled or invalid',
+      )
+    let response: Response
+    try {
+      response = await fetch(
+        `https://api.stripe.com/v1/payment_intents/${intentId}/${action}`,
+        {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${key}`,
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'Idempotency-Key': idempotencyKey,
+          },
+          body: form.toString(),
+          signal: AbortSignal.timeout(12_000),
+        },
+      )
+    } catch {
+      throw new ServiceUnavailableException('Stripe TEST action unavailable')
+    }
+    if (!response.ok)
+      throw new ServiceUnavailableException(
+        'Stripe TEST action rejected; status verification required',
+      )
+    let json: unknown
+    try {
+      json = (await response.json()) as unknown
+    } catch {
+      throw new ServiceUnavailableException(
+        'Invalid Stripe TEST action response',
+      )
+    }
+    return this.validateIntent(intentId, json)
+  }
+
   private validateIntent(
     intentId: string,
     json: unknown,

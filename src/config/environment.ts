@@ -1,6 +1,7 @@
 import path from 'node:path'
 export type Environment = {
   STRIPE_TEST_ENABLED: boolean
+  STRIPE_TEST_CHECKOUT_ENABLED: boolean
   STRIPE_TEST_SECRET_KEY: string
   STRIPE_TEST_WEBHOOK_SECRET: string
   NODE_ENV: 'development' | 'test' | 'production'
@@ -220,8 +221,24 @@ export function validateEnvironment(raw: Record<string, unknown>): Environment {
   if (![true, false, 'true', 'false'].includes(stripeFlag as string | boolean))
     throw new Error('STRIPE_TEST_ENABLED must be true or false')
   const stripeEnabled = stripeFlag === true || stripeFlag === 'true'
-  const stripeKey = typeof raw.STRIPE_TEST_SECRET_KEY === 'string' ? raw.STRIPE_TEST_SECRET_KEY : ''
-  const stripeWebhook = typeof raw.STRIPE_TEST_WEBHOOK_SECRET === 'string' ? raw.STRIPE_TEST_WEBHOOK_SECRET : ''
+  const checkoutFlag = raw.STRIPE_TEST_CHECKOUT_ENABLED ?? 'false'
+  if (
+    ![true, false, 'true', 'false'].includes(checkoutFlag as string | boolean)
+  )
+    throw new Error('STRIPE_TEST_CHECKOUT_ENABLED must be true or false')
+  const checkoutEnabled = checkoutFlag === true || checkoutFlag === 'true'
+  if (checkoutEnabled && (!stripeEnabled || mode === 'production'))
+    throw new Error(
+      'TEST checkout requires enabled Stripe TEST and non-production environment',
+    )
+  const stripeKey =
+    typeof raw.STRIPE_TEST_SECRET_KEY === 'string'
+      ? raw.STRIPE_TEST_SECRET_KEY
+      : ''
+  const stripeWebhook =
+    typeof raw.STRIPE_TEST_WEBHOOK_SECRET === 'string'
+      ? raw.STRIPE_TEST_WEBHOOK_SECRET
+      : ''
   if (stripeKey && !/^sk_test_[A-Za-z0-9]{8,}$/.test(stripeKey))
     throw new Error('Only Stripe test secret keys are permitted')
   if (stripeWebhook && !/^whsec_[A-Za-z0-9]{8,}$/.test(stripeWebhook))
@@ -230,6 +247,7 @@ export function validateEnvironment(raw: Record<string, unknown>): Environment {
     throw new Error('Stripe TEST mode requires a test key and webhook secret')
   return {
     STRIPE_TEST_ENABLED: stripeEnabled,
+    STRIPE_TEST_CHECKOUT_ENABLED: checkoutEnabled,
     STRIPE_TEST_SECRET_KEY: stripeKey,
     STRIPE_TEST_WEBHOOK_SECRET: stripeWebhook,
     MEDIA_CDN_CF_ZONE_ID: cdnZoneId,

@@ -13,6 +13,9 @@ export class PaymentPreparationResponseDto {
       'SETTLED',
       'CANCELLING',
       'CANCELLED',
+      'CONFIRMING',
+      'CAPTURING',
+      'AWAITING_WEBHOOK',
     ],
   })
   preparationStatus!: string
@@ -20,4 +23,14 @@ export class PaymentPreparationResponseDto {
   @ApiProperty({ example: 'USD' }) currency!: string
   @ApiProperty({ example: false }) canConfirm!: false
   @ApiProperty({ example: false }) payable!: false
+}
+
+/** No client_secret, no card data, no claim that the order is paid. */
+export class TestCardCompletionResponseDto {
+  @ApiProperty({ format: 'uuid' }) orderId!: string
+  @ApiProperty({ example: true }) testMode!: true
+  @ApiProperty({ enum: ['AWAITING_WEBHOOK', 'SETTLED', 'REQUIRES_REVIEW'] })
+  state!: string
+  @ApiProperty({ example: false }) paid!: boolean
+  @ApiProperty({ example: true }) settlementPending!: boolean
 }

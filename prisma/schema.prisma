@@ -551,6 +551,9 @@ enum PaymentAttemptStatus {
   SETTLED
   CANCELLING
   CANCELLED
+  CONFIRMING
+  CAPTURING
+  AWAITING_WEBHOOK
 }
 
 model PaymentAttempt {
@@ -567,6 +570,8 @@ model PaymentAttempt {
   cancellationStartedAt DateTime? @map("cancellation_started_at")
   cancellationRetryAt DateTime @default(now()) @map("cancellation_retry_at")
   cancellationAttempts Int @default(0) @map("cancellation_attempts")
+  testCompletionStartedAt DateTime? @map("test_completion_started_at")
+  testCompletionAttempts Int @default(0) @map("test_completion_attempts")
   createdAt         DateTime @default(now()) @map("created_at")
   updatedAt         DateTime @updatedAt @map("updated_at")
   transaction       PaymentTransaction?

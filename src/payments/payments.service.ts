@@ -117,9 +117,14 @@ export class PaymentsService {
       )
     if (attempt.status === 'READY') return this.display(attempt)
     if (
-      attempt.status === 'SETTLED' ||
-      attempt.status === 'CANCELLING' ||
-      attempt.status === 'CANCELLED'
+      [
+        'SETTLED',
+        'CANCELLING',
+        'CANCELLED',
+        'CONFIRMING',
+        'CAPTURING',
+        'AWAITING_WEBHOOK',
+      ].includes(attempt.status)
     )
       throw new ConflictException(
         'Payment attempt is not eligible for preparation',

@@ -380,6 +380,22 @@ export class OrdersService {
     if (order.status !== 'PENDING_PAYMENT') return order
     // A signed success receipt awaiting provider verification fences allocation
     // release. Worker must reconcile first; do not free potentially paid stock.
+    // Once TEST confirmation starts, provider-side capture can succeed even
+    // without a webhook yet. Never release its stock before reconciliation.
+    const inFlight = await tx.paymentAttempt.findFirst({
+      where: {
+        orderId: order.id,
+        OR: [
+          { status: { in: ['CONFIRMING', 'CAPTURING', 'AWAITING_WEBHOOK'] } },
+          { status: 'REQUIRES_REVIEW', testCompletionAttempts: { gt: 0 } },
+        ],
+      },
+      select: { id: true },
+    })
+    if (inFlight)
+      throw new ConflictException(
+        'TEST payment is in progress; reconcile before closing order',
+      )
     const unresolvedSucceeded = await tx.paymentWebhookReceipt.findFirst({
       where: {
         eventType: 'payment_intent.succeeded',
@@ -475,6 +491,11 @@ export class OrdersService {
         const rows = await tx.$queryRaw<Array<{ id: string }>>`
         SELECT o.id FROM orders o WHERE o.status = 'PENDING_PAYMENT'
           AND o.payment_deadline_at <= (CURRENT_TIMESTAMP AT TIME ZONE 'UTC')
+          AND NOT EXISTS (
+            SELECT 1 FROM payment_attempts pa2 WHERE pa2.order_id = o.id
+              AND (pa2.status IN ('CONFIRMING', 'CAPTURING', 'AWAITING_WEBHOOK')
+                OR (pa2.status = 'REQUIRES_REVIEW' AND pa2.test_completion_attempts > 0))
+          )
           AND NOT EXISTS (
             SELECT 1 FROM payment_attempts pa
               JOIN payment_webhook_receipts r ON r.provider_intent_id = pa.provider_intent_id

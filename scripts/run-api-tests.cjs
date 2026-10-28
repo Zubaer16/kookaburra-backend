@@ -62,6 +62,7 @@ function baseEnv() {
     MEDIA_NAMESPACE: 'projects/kookaburra/products',
     MEDIA_PROVIDER: 'cloudinary',
     STRIPE_TEST_ENABLED: 'false',
+    STRIPE_TEST_CHECKOUT_ENABLED: 'false',
     STRIPE_TEST_SECRET_KEY: '',
     STRIPE_TEST_WEBHOOK_SECRET: '',
     MEDIA_S3_ENDPOINT: '',
@@ -180,7 +181,15 @@ try {
   }
   // DB and Chromium-DB suites exercise real local disk I/O in an isolated,
   // throwaway OS temporary folder; SECURITY stays on unconfigured cloudinary.
-  if (mode === 'db' || mode === 'visual-db' || mode === 'visual-guest' || mode === 'visual-checkout' || mode === 'visual-reservation' || mode === 'visual-orders' || mode === 'visual-payments') {
+  if (
+    mode === 'db' ||
+    mode === 'visual-db' ||
+    mode === 'visual-guest' ||
+    mode === 'visual-checkout' ||
+    mode === 'visual-reservation' ||
+    mode === 'visual-orders' ||
+    mode === 'visual-payments'
+  ) {
     safe.MEDIA_PROVIDER = 'disk'
     safe.MEDIA_DISK_ROOT = path.join(
       os.tmpdir(),
@@ -194,16 +203,31 @@ try {
   const cli = path.join(root, 'node_modules', '@playwright', 'test', 'cli.js')
   run(
     cli,
-    mode === 'visual-db' || mode === 'visual-guest' || mode === 'visual-checkout' || mode === 'visual-reservation' || mode === 'visual-orders' || mode === 'visual-payments'
+    mode === 'visual-db' ||
+      mode === 'visual-guest' ||
+      mode === 'visual-checkout' ||
+      mode === 'visual-reservation' ||
+      mode === 'visual-orders' ||
+      mode === 'visual-payments'
       ? [
           'test',
           '--config=playwright.swagger.config.mjs',
           '--project=visual-db',
-          ...(mode === 'visual-guest' ? ['--grep', '04A-2 Swagger Chromium: guest capability'] : []),
-          ...(mode === 'visual-checkout' ? ['--grep', '04B-1 Swagger Chromium: owner policy configuration'] : []),
-          ...(mode === 'visual-reservation' ? ['--grep', '04B-2 Swagger Chromium: reservation'] : []),
-          ...(mode === 'visual-orders' ? ['--grep', '04C-1 Swagger Chromium: unpaid order'] : []),
-          ...(mode === 'visual-payments' ? ['--grep', '04C-2A Swagger Chromium: test payment'] : []),
+          ...(mode === 'visual-guest'
+            ? ['--grep', '04A-2 Swagger Chromium: guest capability']
+            : []),
+          ...(mode === 'visual-checkout'
+            ? ['--grep', '04B-1 Swagger Chromium: owner policy configuration']
+            : []),
+          ...(mode === 'visual-reservation'
+            ? ['--grep', '04B-2 Swagger Chromium: reservation']
+            : []),
+          ...(mode === 'visual-orders'
+            ? ['--grep', '04C-1 Swagger Chromium: unpaid order']
+            : []),
+          ...(mode === 'visual-payments'
+            ? ['--grep', '04C-2A Swagger Chromium: test payment']
+            : []),
         ]
       : mode === 'security'
         ? ['test', '--config=playwright.api.config.mjs', '--project=security']
