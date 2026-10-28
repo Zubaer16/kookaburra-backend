@@ -118,11 +118,11 @@ export async function createHttpApp(): Promise<INestApplication> {
       )
       .addTag(
         'Payments / Customer',
-        'Stripe TEST-only intent preparation; card confirmation disabled',
+        'Stripe TEST intent preparation; verified settlement is operator-worker-only; card confirmation disabled',
       )
       .addTag(
         'Payments / Webhooks',
-        'Signed Stripe event receipts; no settlement or stock mutation',
+        'Signed Stripe test event receipts; provider-verified settlement via explicit reconciliation worker',
       )
       .addTag(
         'Checkout / Admin',

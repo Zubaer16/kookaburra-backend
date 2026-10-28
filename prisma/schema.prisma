@@ -165,6 +165,7 @@ enum InventoryReason {
   RETURN
   DAMAGE
   CORRECTION
+  SALE
 }
 
 // Exactly one of productId/variantId is populated (also checked by SQL).
@@ -474,6 +475,7 @@ enum OrderStatus {
   PENDING_PAYMENT
   CANCELLED
   EXPIRED
+  PAID
 }
 
 model Order {
@@ -496,11 +498,13 @@ model Order {
   shippingAddress   Json        @map("shipping_address") @db.JsonB
   paymentDeadlineAt DateTime    @map("payment_deadline_at")
   closedAt          DateTime?   @map("closed_at")
+  paidAt            DateTime?   @map("paid_at")
   createdAt         DateTime    @default(now()) @map("created_at")
   updatedAt         DateTime    @updatedAt @map("updated_at")
   lines             OrderLine[]
   statusEvents      OrderStatusEvent[]
   paymentAttempt    PaymentAttempt?
+  paymentTransaction PaymentTransaction?
 
   @@unique([customerId, requestId], map: "orders_customer_request_key")
   @@index([status, paymentDeadlineAt])
@@ -544,6 +548,7 @@ enum PaymentAttemptStatus {
   CREATING
   READY
   REQUIRES_REVIEW
+  SETTLED
 }
 
 model PaymentAttempt {
@@ -559,6 +564,7 @@ model PaymentAttempt {
   creationStartedAt DateTime @default(now()) @map("creation_started_at")
   createdAt         DateTime @default(now()) @map("created_at")
   updatedAt         DateTime @updatedAt @map("updated_at")
+  transaction       PaymentTransaction?
 
   @@index([status, creationStartedAt])
   @@map("payment_attempts")
@@ -574,8 +580,28 @@ model PaymentWebhookReceipt {
   payloadSha256     String @map("payload_sha256") @db.VarChar(64)
   status            String @default("RECEIVED") @db.VarChar(30)
   receivedAt        DateTime @default(now()) @map("received_at")
+  processedAt       DateTime? @map("processed_at")
+  processingAt      DateTime? @map("processing_at")
+  retryAt           DateTime @default(now()) @map("retry_at")
+  attempts          Int @default(0)
 
   @@index([providerIntentId])
   @@index([status, receivedAt])
   @@map("payment_webhook_receipts")
+}
+
+// 04C-2B1: recorded only after a freshly retrieved TEST payment intent is
+// provider-confirmed succeeded and inventory + order commit together.
+model PaymentTransaction {
+  id               String @id @default(uuid()) @db.Uuid
+  orderId          String @unique @map("order_id") @db.Uuid
+  order            Order @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  paymentAttemptId String @unique @map("payment_attempt_id") @db.Uuid
+  paymentAttempt   PaymentAttempt @relation(fields: [paymentAttemptId], references: [id], onDelete: Restrict)
+  providerIntentId String @unique @map("provider_intent_id") @db.VarChar(128)
+  amountMinor      Int @map("amount_minor")
+  currency         String @db.VarChar(3)
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  @@map("payment_transactions")
 }

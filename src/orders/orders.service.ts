@@ -59,6 +59,7 @@ function present(order: OrderRecord) {
     totalMinor: order.totalMinor,
     shippingAddress: order.shippingAddress,
     paymentDeadlineAt: order.paymentDeadlineAt,
+    paidAt: order.paidAt,
     createdAt: order.createdAt,
     lines: order.lines.map((line) => ({
       productId: line.productId,
@@ -377,6 +378,29 @@ export class OrdersService {
     target: 'CANCELLED' | 'EXPIRED',
   ) {
     if (order.status !== 'PENDING_PAYMENT') return order
+    // A signed success receipt awaiting provider verification fences allocation
+    // release. Worker must reconcile first; do not free potentially paid stock.
+    const unresolvedSucceeded = await tx.paymentWebhookReceipt.findFirst({
+      where: {
+        eventType: 'payment_intent.succeeded',
+        status: { in: ['RECEIVED', 'PROCESSING'] },
+        providerIntentId: {
+          in: (
+            await tx.paymentAttempt.findMany({
+              where: { orderId: order.id },
+              select: { providerIntentId: true },
+            })
+          )
+            .map((a) => a.providerIntentId)
+            .filter((id): id is string => !!id),
+        },
+      },
+      select: { id: true },
+    })
+    if (unresolvedSucceeded)
+      throw new ConflictException(
+        'Payment success is awaiting reconciliation; cannot release allocation',
+      )
     const lines = await tx.checkoutReservationLine.findMany({
       where: { reservationId: order.reservationId },
       orderBy: [{ balanceId: 'asc' }],
@@ -427,6 +451,10 @@ export class OrdersService {
     return this.database.client.$transaction(
       async (tx) => {
         const order = await this.requireOwn(tx, customerId, id)
+        if (order.status === 'PAID')
+          throw new ConflictException(
+            'Paid orders cannot be cancelled by unpaid-order cancellation',
+          )
         const closed = await this.closePending(
           tx,
           order,
@@ -445,9 +473,15 @@ export class OrdersService {
     return this.database.client.$transaction(
       async (tx) => {
         const rows = await tx.$queryRaw<Array<{ id: string }>>`
-        SELECT id FROM orders WHERE status = 'PENDING_PAYMENT'
-          AND payment_deadline_at <= (CURRENT_TIMESTAMP AT TIME ZONE 'UTC')
-        ORDER BY payment_deadline_at, id
+        SELECT o.id FROM orders o WHERE o.status = 'PENDING_PAYMENT'
+          AND o.payment_deadline_at <= (CURRENT_TIMESTAMP AT TIME ZONE 'UTC')
+          AND NOT EXISTS (
+            SELECT 1 FROM payment_attempts pa
+              JOIN payment_webhook_receipts r ON r.provider_intent_id = pa.provider_intent_id
+            WHERE pa.order_id = o.id AND r.event_type = 'payment_intent.succeeded'
+              AND r.status IN ('RECEIVED', 'PROCESSING')
+          )
+        ORDER BY o.payment_deadline_at, o.id
         LIMIT ${limit} FOR UPDATE SKIP LOCKED
       `
         for (const row of rows) {

@@ -42,6 +42,7 @@
     "test:api:visual:reservation": "npm run build && node scripts/run-api-tests.cjs visual-reservation",
     "test:api:visual:orders": "npm run build && node scripts/run-api-tests.cjs visual-orders",
     "checkout:expire": "npm run build && node -r dotenv/config dist/tools/checkout-expire.js",
+    "payments:reconcile": "npm run build && node -r dotenv/config dist/tools/payments-reconcile.js",
     "test:api:visual:payments": "npm run build && node scripts/run-api-tests.cjs visual-payments"
   },
   "engines": {

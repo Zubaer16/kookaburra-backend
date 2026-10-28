@@ -79,4 +79,84 @@ export class StripeTestGateway {
       )
     return { id: intent.id, status: intent.status }
   }
+  /** Always refetch directly from Stripe before financial state can change. */
+  async retrieve(intentId: string): Promise<VerifiedStripeIntentState> {
+    const key = this.config.get('STRIPE_TEST_SECRET_KEY', { infer: true })
+    if (
+      !this.config.get('STRIPE_TEST_ENABLED', { infer: true }) ||
+      !/^sk_test_[A-Za-z0-9]{8,}$/.test(key)
+    )
+      throw new ServiceUnavailableException(
+        'Stripe test reconciliation is disabled',
+      )
+    if (!/^pi_[A-Za-z0-9]{6,120}$/.test(intentId))
+      throw new ServiceUnavailableException(
+        'Invalid Stripe test intent identity',
+      )
+    let response: Response
+    try {
+      response = await fetch(
+        `https://api.stripe.com/v1/payment_intents/${intentId}`,
+        {
+          headers: { Authorization: `Bearer ${key}` },
+          signal: AbortSignal.timeout(12_000),
+        },
+      )
+    } catch {
+      throw new ServiceUnavailableException(
+        'Stripe test status lookup unavailable',
+      )
+    }
+    if (!response.ok)
+      throw new ServiceUnavailableException(
+        'Stripe test status lookup rejected',
+      )
+    let json: unknown
+    try {
+      json = (await response.json()) as unknown
+    } catch {
+      throw new ServiceUnavailableException(
+        'Invalid Stripe test status response',
+      )
+    }
+    const value = json as Record<string, unknown> | null
+    const metadata =
+      value && typeof value.metadata === 'object' && value.metadata !== null
+        ? (value.metadata as Record<string, unknown>)
+        : null
+    if (
+      !value ||
+      value.id !== intentId ||
+      value.object !== 'payment_intent' ||
+      value.livemode !== false ||
+      typeof value.status !== 'string' ||
+      !Number.isSafeInteger(value.amount) ||
+      !Number.isSafeInteger(value.amount_received) ||
+      typeof value.currency !== 'string' ||
+      !/^[a-z]{3}$/.test(value.currency) ||
+      typeof metadata?.order_id !== 'string'
+    )
+      throw new ServiceUnavailableException(
+        'Stripe test status failed invariant validation',
+      )
+    return {
+      id: intentId,
+      status: value.status,
+      amountMinor: value.amount as number,
+      amountReceivedMinor: value.amount_received as number,
+      currency: (value.currency as string).toUpperCase(),
+      orderId: metadata.order_id,
+      livemode: false,
+    }
+  }
+}
+
+export type VerifiedStripeIntentState = {
+  id: string
+  status: string
+  amountMinor: number
+  amountReceivedMinor: number
+  currency: string
+  orderId: string | null
+  livemode: false
 }

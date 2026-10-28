@@ -110,6 +110,8 @@ export class CatalogTestFixture {
                   'order.cancelled',
                   'order.expired',
                   'payment.test_intent_prepared',
+                  'payment.test_settled',
+                  'payment.test_review_required',
                 ],
               },
               payload: { path: ['orderId'], equals: order.id },
@@ -118,6 +120,9 @@ export class CatalogTestFixture {
         }
         // Phase 04C-2A: FK-restricted payment attempts must be removed only
         // for this fixture before deleting its orders (never global cleanup).
+        await this.db.paymentTransaction.deleteMany({
+          where: { order: { customerId: { in: fixtureUserIds } } },
+        })
         await this.db.paymentAttempt.deleteMany({
           where: {
             order: { customerId: { in: fixtureUserIds } },

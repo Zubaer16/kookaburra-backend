@@ -7,10 +7,16 @@ import {
 } from './payments.controller'
 import { PaymentsService } from './payments.service'
 import { StripeTestGateway } from './stripe-gateway'
+import { PaymentSettlementService } from './payment-settlement.service'
 
 @Module({
   imports: [AuthModule],
   controllers: [PaymentCustomerController, PaymentWebhookController],
-  providers: [PaymentsService, StripeTestGateway, CustomerCartGuard],
+  providers: [
+    PaymentsService,
+    StripeTestGateway,
+    PaymentSettlementService,
+    CustomerCartGuard,
+  ],
 })
 export class PaymentsModule {}

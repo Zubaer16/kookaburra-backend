@@ -123,7 +123,7 @@ export class OrderResponseDto {
   @ApiProperty({ format: 'uuid' }) id!: string
   @ApiProperty({ format: 'uuid' }) reservationId!: string
   @ApiProperty({ format: 'uuid' }) requestId!: string
-  @ApiProperty({ enum: ['PENDING_PAYMENT', 'CANCELLED', 'EXPIRED'] })
+  @ApiProperty({ enum: ['PENDING_PAYMENT', 'CANCELLED', 'EXPIRED', 'PAID'] })
   status!: string
   @ApiProperty({ example: 'US' }) countryCode!: string
   @ApiProperty({ example: 'USD' }) currency!: string
@@ -135,9 +135,12 @@ export class OrderResponseDto {
   shippingAddress!: OrderShippingAddressDto
   @ApiProperty({ type: [OrderLineResponseDto] }) lines!: OrderLineResponseDto[]
   @ApiProperty({ type: String, format: 'date-time' }) paymentDeadlineAt!: Date
+  @ApiPropertyOptional({ type: String, format: 'date-time', nullable: true })
+  paidAt!: Date | null
   @ApiProperty({
     example: false,
-    description: 'Stripe/payment processing is not enabled in 04C-1',
+    description:
+      'Not a payable checkout action. Payment confirmation is not exposed in this phase',
   })
   payable!: false
 }
