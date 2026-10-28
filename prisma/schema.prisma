@@ -549,6 +549,8 @@ enum PaymentAttemptStatus {
   READY
   REQUIRES_REVIEW
   SETTLED
+  CANCELLING
+  CANCELLED
 }
 
 model PaymentAttempt {
@@ -562,11 +564,15 @@ model PaymentAttempt {
   amountMinor       Int @map("amount_minor")
   currency          String @db.VarChar(3)
   creationStartedAt DateTime @default(now()) @map("creation_started_at")
+  cancellationStartedAt DateTime? @map("cancellation_started_at")
+  cancellationRetryAt DateTime @default(now()) @map("cancellation_retry_at")
+  cancellationAttempts Int @default(0) @map("cancellation_attempts")
   createdAt         DateTime @default(now()) @map("created_at")
   updatedAt         DateTime @updatedAt @map("updated_at")
   transaction       PaymentTransaction?
 
   @@index([status, creationStartedAt])
+  @@index([status, cancellationRetryAt])
   @@map("payment_attempts")
 }
 

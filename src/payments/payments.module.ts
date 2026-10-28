@@ -8,6 +8,7 @@ import {
 import { PaymentsService } from './payments.service'
 import { StripeTestGateway } from './stripe-gateway'
 import { PaymentSettlementService } from './payment-settlement.service'
+import { PaymentCancellationService } from './payment-cancellation.service'
 
 @Module({
   imports: [AuthModule],
@@ -16,6 +17,7 @@ import { PaymentSettlementService } from './payment-settlement.service'
     PaymentsService,
     StripeTestGateway,
     PaymentSettlementService,
+    PaymentCancellationService,
     CustomerCartGuard,
   ],
 })

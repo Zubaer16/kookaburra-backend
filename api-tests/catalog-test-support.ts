@@ -111,6 +111,7 @@ export class CatalogTestFixture {
                   'order.expired',
                   'payment.test_intent_prepared',
                   'payment.test_settled',
+                  'payment.test_intent_cancelled',
                   'payment.test_review_required',
                 ],
               },

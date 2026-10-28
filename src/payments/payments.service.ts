@@ -116,6 +116,14 @@ export class PaymentsService {
         'Payment preparation immutable values changed',
       )
     if (attempt.status === 'READY') return this.display(attempt)
+    if (
+      attempt.status === 'SETTLED' ||
+      attempt.status === 'CANCELLING' ||
+      attempt.status === 'CANCELLED'
+    )
+      throw new ConflictException(
+        'Payment attempt is not eligible for preparation',
+      )
     if (attempt.status === 'REQUIRES_REVIEW')
       throw new ConflictException(
         'Payment preparation requires manual reconciliation',

@@ -43,3 +43,5 @@
 
 - [ ] Phase 04C-2A TEST-mode payment preparation + raw signed webhook receipts implemented; real Windows acceptance pending. **Not payable**; no card confirmation/capture, order PAID, physical deduction or payout.
 - [ ] Phase 04C-2B: settlement/reconciliation, provider cancellation, payment expiry coordination, charge/refund, stock finalization.
+
+- [ ] Phase 04C-2B2A: operator-only Stripe TEST provider cancellation + durable retry/review worker; implementation authored, Windows PostgreSQL/Chromium acceptance pending. No new checkout/capture/refund endpoint.

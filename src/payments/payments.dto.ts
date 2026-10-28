@@ -5,7 +5,16 @@ export class PaymentPreparationResponseDto {
   @ApiProperty({ example: 'STRIPE_TEST' }) provider!: string
   @ApiProperty({ nullable: true, example: 'pi_3FakeTestIdentifier12345' })
   providerIntentId!: string | null
-  @ApiProperty({ enum: ['CREATING', 'READY', 'REQUIRES_REVIEW', 'SETTLED'] })
+  @ApiProperty({
+    enum: [
+      'CREATING',
+      'READY',
+      'REQUIRES_REVIEW',
+      'SETTLED',
+      'CANCELLING',
+      'CANCELLED',
+    ],
+  })
   preparationStatus!: string
   @ApiProperty({ type: 'integer' }) amountMinor!: number
   @ApiProperty({ example: 'USD' }) currency!: string

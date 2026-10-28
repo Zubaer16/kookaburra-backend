@@ -79,6 +79,92 @@ export class StripeTestGateway {
       )
     return { id: intent.id, status: intent.status }
   }
+  /** Cancel a closed order's unused TEST PaymentIntent. This never refunds a paid charge. */
+  async cancel(
+    intentId: string,
+    reason: 'abandoned' | 'requested_by_customer' = 'abandoned',
+  ): Promise<VerifiedStripeIntentState> {
+    const key = this.config.get('STRIPE_TEST_SECRET_KEY', { infer: true })
+    if (
+      !this.config.get('STRIPE_TEST_ENABLED', { infer: true }) ||
+      !/^sk_test_[A-Za-z0-9]{8,}$/.test(key)
+    )
+      throw new ServiceUnavailableException(
+        'Stripe TEST cancellation is disabled',
+      )
+    if (!/^pi_[A-Za-z0-9]{6,120}$/.test(intentId))
+      throw new ServiceUnavailableException('Invalid Stripe TEST intent ID')
+    let response: Response
+    try {
+      response = await fetch(
+        `https://api.stripe.com/v1/payment_intents/${intentId}/cancel`,
+        {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${key}`,
+            'Content-Type': 'application/x-www-form-urlencoded',
+          },
+          body: new URLSearchParams({ cancellation_reason: reason }).toString(),
+          signal: AbortSignal.timeout(12_000),
+        },
+      )
+    } catch {
+      throw new ServiceUnavailableException(
+        'Stripe TEST cancellation temporarily unavailable',
+      )
+    }
+    // A failed Stripe cancellation can mean the intent is already canceled or paid;
+    // never guess which. The worker performs a fresh read and quarantines success.
+    if (!response.ok)
+      throw new ServiceUnavailableException(
+        'Stripe TEST cancellation requires status verification',
+      )
+    let result: unknown
+    try {
+      result = (await response.json()) as unknown
+    } catch {
+      throw new ServiceUnavailableException(
+        'Invalid Stripe TEST cancellation response',
+      )
+    }
+    return this.validateIntent(intentId, result)
+  }
+
+  private validateIntent(
+    intentId: string,
+    json: unknown,
+  ): VerifiedStripeIntentState {
+    const value = json as Record<string, unknown> | null
+    const metadata =
+      value && typeof value.metadata === 'object' && value.metadata !== null
+        ? (value.metadata as Record<string, unknown>)
+        : null
+    if (
+      !value ||
+      value.id !== intentId ||
+      value.object !== 'payment_intent' ||
+      value.livemode !== false ||
+      typeof value.status !== 'string' ||
+      !Number.isSafeInteger(value.amount) ||
+      !Number.isSafeInteger(value.amount_received) ||
+      typeof value.currency !== 'string' ||
+      !/^[a-z]{3}$/.test(value.currency) ||
+      typeof metadata?.order_id !== 'string'
+    )
+      throw new ServiceUnavailableException(
+        'Stripe TEST intent failed invariant verification',
+      )
+    return {
+      id: intentId,
+      status: value.status,
+      amountMinor: value.amount as number,
+      amountReceivedMinor: value.amount_received as number,
+      currency: (value.currency as string).toUpperCase(),
+      orderId: metadata.order_id,
+      livemode: false,
+    }
+  }
+
   /** Always refetch directly from Stripe before financial state can change. */
   async retrieve(intentId: string): Promise<VerifiedStripeIntentState> {
     const key = this.config.get('STRIPE_TEST_SECRET_KEY', { infer: true })
@@ -119,35 +205,7 @@ export class StripeTestGateway {
         'Invalid Stripe test status response',
       )
     }
-    const value = json as Record<string, unknown> | null
-    const metadata =
-      value && typeof value.metadata === 'object' && value.metadata !== null
-        ? (value.metadata as Record<string, unknown>)
-        : null
-    if (
-      !value ||
-      value.id !== intentId ||
-      value.object !== 'payment_intent' ||
-      value.livemode !== false ||
-      typeof value.status !== 'string' ||
-      !Number.isSafeInteger(value.amount) ||
-      !Number.isSafeInteger(value.amount_received) ||
-      typeof value.currency !== 'string' ||
-      !/^[a-z]{3}$/.test(value.currency) ||
-      typeof metadata?.order_id !== 'string'
-    )
-      throw new ServiceUnavailableException(
-        'Stripe test status failed invariant validation',
-      )
-    return {
-      id: intentId,
-      status: value.status,
-      amountMinor: value.amount as number,
-      amountReceivedMinor: value.amount_received as number,
-      currency: (value.currency as string).toUpperCase(),
-      orderId: metadata.order_id,
-      livemode: false,
-    }
+    return this.validateIntent(intentId, json)
   }
 }
 

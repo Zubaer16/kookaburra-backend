@@ -43,7 +43,8 @@
     "test:api:visual:orders": "npm run build && node scripts/run-api-tests.cjs visual-orders",
     "checkout:expire": "npm run build && node -r dotenv/config dist/tools/checkout-expire.js",
     "payments:reconcile": "npm run build && node -r dotenv/config dist/tools/payments-reconcile.js",
-    "test:api:visual:payments": "npm run build && node scripts/run-api-tests.cjs visual-payments"
+    "test:api:visual:payments": "npm run build && node scripts/run-api-tests.cjs visual-payments",
+    "payments:cancel-intents": "npm run build && node -r dotenv/config dist/tools/payments-cancel-intents.js"
   },
   "engines": {
     "node": ">=24.11.0 <25"
