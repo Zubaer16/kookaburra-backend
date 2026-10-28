@@ -43,6 +43,7 @@ describe('Phase 03B API smoke tests (no real database)', () => {
       'Checkout / Customer',
       'Orders / Customer',
       'Payments / Customer',
+      'Payments / Admin',
       'Payments / Webhooks',
       'Checkout / Admin',
       'Workspace / Admin',

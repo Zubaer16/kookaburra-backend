@@ -121,6 +121,10 @@ export async function createHttpApp(): Promise<INestApplication> {
         'Stripe TEST intent preparation; verified settlement is operator-worker-only; card confirmation disabled',
       )
       .addTag(
+        'Payments / Admin',
+        'OWNER-only refund request ledger; provider refunds and stock returns are not executed',
+      )
+      .addTag(
         'Payments / Webhooks',
         'Signed Stripe test event receipts; provider-verified settlement via explicit reconciliation worker',
       )

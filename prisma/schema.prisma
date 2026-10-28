@@ -505,6 +505,7 @@ model Order {
   statusEvents      OrderStatusEvent[]
   paymentAttempt    PaymentAttempt?
   paymentTransaction PaymentTransaction?
+  refundRequests RefundRequest[]
 
   @@unique([customerId, requestId], map: "orders_customer_request_key")
   @@index([status, paymentDeadlineAt])
@@ -614,5 +615,39 @@ model PaymentTransaction {
   currency         String @db.VarChar(3)
   createdAt        DateTime @default(now()) @map("created_at")
 
+  refundRequests RefundRequest[]
+
   @@map("payment_transactions")
+}
+
+// 04C-2B2C1: Refund authorisation/amount-allocation ledger ONLY.
+// No provider refund is submitted and no stock is returned by this phase.
+enum RefundRequestStatus {
+  REQUESTED
+  PROCESSING
+  SUCCEEDED
+  FAILED
+  REQUIRES_REVIEW
+}
+
+model RefundRequest {
+  id                   String @id @default(uuid()) @db.Uuid
+  orderId              String @map("order_id") @db.Uuid
+  order                Order @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  paymentTransactionId String @map("payment_transaction_id") @db.Uuid
+  paymentTransaction   PaymentTransaction @relation(fields: [paymentTransactionId], references: [id], onDelete: Restrict)
+  requestId            String @map("request_id") @db.Uuid
+  amountMinor          Int @map("amount_minor")
+  currency             String @db.VarChar(3)
+  reason               String @db.VarChar(32)
+  status               RefundRequestStatus @default(REQUESTED)
+  requestedById        String @map("requested_by_id") @db.Uuid
+  providerRefundId     String? @unique @map("provider_refund_id") @db.VarChar(128)
+  createdAt            DateTime @default(now()) @map("created_at")
+  updatedAt            DateTime @updatedAt @map("updated_at")
+
+  @@unique([orderId, requestId], map: "refund_requests_order_request_key")
+  @@index([orderId, status])
+  @@index([paymentTransactionId])
+  @@map("refund_requests")
 }
