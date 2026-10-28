@@ -116,6 +116,9 @@ export class CatalogTestFixture {
                   'payment.refund_requested',
                   'payment.test_refund_succeeded',
                   'payment.test_refund_failed',
+                  'order.fulfillment.processing',
+                  'order.fulfillment.shipped',
+                  'order.fulfillment.delivered',
                   'payment.test_refund_review_required',
                 ],
               },
@@ -135,6 +138,12 @@ export class CatalogTestFixture {
           where: {
             order: { customerId: { in: fixtureUserIds } },
           },
+        })
+        await this.db.orderShipmentEvent.deleteMany({
+          where: { orderId: { in: fixtureOrders.map((o) => o.id) } },
+        })
+        await this.db.orderShipment.deleteMany({
+          where: { orderId: { in: fixtureOrders.map((o) => o.id) } },
         })
         await this.db.order.deleteMany({
           where: { customerId: { in: fixtureUserIds } },

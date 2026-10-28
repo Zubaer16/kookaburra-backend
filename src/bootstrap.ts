@@ -117,6 +117,10 @@ export async function createHttpApp(): Promise<INestApplication> {
         'Owned immutable unpaid orders, pending allocation and safe cancellation',
       )
       .addTag(
+        'Orders / Admin',
+        'Permission-gated paid order processing and single-shipment tracking',
+      )
+      .addTag(
         'Payments / Customer',
         'Stripe TEST intent preparation; verified settlement is operator-worker-only; card confirmation disabled',
       )

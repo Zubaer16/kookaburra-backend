@@ -1,4 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger'
+import { OrderFulfillmentResponseDto } from './fulfillment.dto'
 import { Type } from 'class-transformer'
 import {
   IsDefined,
@@ -143,4 +144,6 @@ export class OrderResponseDto {
       'Not a payable checkout action. Payment confirmation is not exposed in this phase',
   })
   payable!: false
+  @ApiPropertyOptional({ type: OrderFulfillmentResponseDto, nullable: true })
+  fulfillment!: OrderFulfillmentResponseDto | null
 }

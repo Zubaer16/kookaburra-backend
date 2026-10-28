@@ -3,10 +3,18 @@ import { AuthModule } from '../auth/auth.module'
 import { CustomerCartGuard } from '../cart/cart.customer.guard'
 import { OrdersCustomerController } from './orders.controller'
 import { OrdersService } from './orders.service'
+import { FulfillmentAdminController } from './fulfillment.controller'
+import { FulfillmentService } from './fulfillment.service'
+import { FulfillmentManageGuard } from './fulfillment.guard'
 
 @Module({
   imports: [AuthModule],
-  controllers: [OrdersCustomerController],
-  providers: [OrdersService, CustomerCartGuard],
+  controllers: [OrdersCustomerController, FulfillmentAdminController],
+  providers: [
+    OrdersService,
+    CustomerCartGuard,
+    FulfillmentService,
+    FulfillmentManageGuard,
+  ],
 })
 export class OrdersModule {}

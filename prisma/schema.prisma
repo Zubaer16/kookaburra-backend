@@ -506,6 +506,7 @@ model Order {
   paymentAttempt    PaymentAttempt?
   paymentTransaction PaymentTransaction?
   refundRequests RefundRequest[]
+  shipment OrderShipment?
 
   @@unique([customerId, requestId], map: "orders_customer_request_key")
   @@index([status, paymentDeadlineAt])
@@ -657,4 +658,45 @@ model RefundRequest {
   @@index([status, retryAt])
   @@index([paymentTransactionId])
   @@map("refund_requests")
+}
+
+// 04D-1: One all-lines shipment per PAID order; no partial fulfillment or carrier integration.
+// Shipment status is separate from payment/order status and NEVER mutates inventory.
+enum FulfillmentStatus {
+  PROCESSING
+  SHIPPED
+  DELIVERED
+}
+
+model OrderShipment {
+  id             String            @id @default(uuid()) @db.Uuid
+  orderId        String            @unique @map("order_id") @db.Uuid
+  order          Order             @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  status         FulfillmentStatus @default(PROCESSING)
+  carrier        String?           @db.VarChar(80)
+  trackingNumber String?           @map("tracking_number") @db.VarChar(120)
+  startedAt      DateTime          @default(now()) @map("started_at")
+  shippedAt      DateTime?         @map("shipped_at")
+  deliveredAt    DateTime?         @map("delivered_at")
+  updatedAt      DateTime          @updatedAt @map("updated_at")
+  events         OrderShipmentEvent[]
+
+  @@index([status, startedAt])
+  @@map("order_shipments")
+}
+
+model OrderShipmentEvent {
+  id          String            @id @default(uuid()) @db.Uuid
+  shipmentId  String            @map("shipment_id") @db.Uuid
+  shipment    OrderShipment     @relation(fields: [shipmentId], references: [id], onDelete: Cascade)
+  orderId     String            @map("order_id") @db.Uuid
+  requestId   String            @map("request_id") @db.Uuid
+  requestHash String            @map("request_hash") @db.VarChar(64)
+  status      FulfillmentStatus
+  actorId     String            @map("actor_id") @db.Uuid
+  createdAt   DateTime          @default(now()) @map("created_at")
+
+  @@unique([orderId, requestId], map: "order_shipment_events_order_request_key")
+  @@index([shipmentId, createdAt])
+  @@map("order_shipment_events")
 }

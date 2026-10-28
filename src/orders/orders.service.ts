@@ -7,6 +7,7 @@ import {
 } from '@nestjs/common'
 import { DatabaseService } from '../database/database.service'
 import { Prisma } from '../generated/prisma/client'
+import { presentShipment } from './fulfillment.service'
 import {
   CreateOrderDto,
   OrderQueryDto,
@@ -16,6 +17,7 @@ import {
 export const ORDER_PAYMENT_WINDOW_MS = 20 * 60 * 1000
 const includeOrder = {
   lines: { orderBy: { id: 'asc' as const } },
+  shipment: true,
 } satisfies Prisma.OrderInclude
 
 type OrderRecord = Prisma.OrderGetPayload<{ include: typeof includeOrder }>
@@ -60,6 +62,7 @@ function present(order: OrderRecord) {
     shippingAddress: order.shippingAddress,
     paymentDeadlineAt: order.paymentDeadlineAt,
     paidAt: order.paidAt,
+    fulfillment: presentShipment(order.shipment),
     createdAt: order.createdAt,
     lines: order.lines.map((line) => ({
       productId: line.productId,
