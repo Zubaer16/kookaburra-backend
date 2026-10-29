@@ -129,6 +129,14 @@ export async function createHttpApp(): Promise<INestApplication> {
         'Permission-gated inspection and controlled stock restocking',
       )
       .addTag(
+        'Tracking / Customer',
+        'Authenticated order-UUID tracking of original shipment and recovery',
+      )
+      .addTag(
+        'Tracking / Admin',
+        'Permission-gated fulfillment, return and replacement read projection',
+      )
+      .addTag(
         'Payments / Customer',
         'Stripe TEST intent preparation; verified settlement is operator-worker-only; card confirmation disabled',
       )

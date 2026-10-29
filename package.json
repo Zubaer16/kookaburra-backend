@@ -48,7 +48,8 @@
     "payments:cancel-intents": "npm run build && node -r dotenv/config dist/tools/payments-cancel-intents.js",
     "payments:refunds": "npm run build && node -r dotenv/config dist/tools/payments-refunds.js",
     "test:api:visual:returns": "npm run build && node scripts/run-api-tests.cjs visual-returns",
-    "test:api:visual:replacements": "npm run build && node scripts/run-api-tests.cjs visual-replacements"
+    "test:api:visual:replacements": "npm run build && node scripts/run-api-tests.cjs visual-replacements",
+    "test:api:visual:tracking": "npm run build && node scripts/run-api-tests.cjs visual-tracking"
   },
   "engines": {
     "node": ">=24.11.0 <25"

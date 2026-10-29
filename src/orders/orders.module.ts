@@ -12,6 +12,11 @@ import {
 } from './returns.controller'
 import { ReturnsService } from './returns.service'
 import { ReplacementsService } from './replacements.service'
+import { TrackingService } from './tracking.service'
+import {
+  TrackingAdminController,
+  TrackingCustomerController,
+} from './tracking.controller'
 import {
   ReplacementsAdminController,
   ReplacementsCustomerController,
@@ -26,6 +31,8 @@ import {
     ReturnsAdminController,
     ReplacementsAdminController,
     ReplacementsCustomerController,
+    TrackingCustomerController,
+    TrackingAdminController,
   ],
   providers: [
     OrdersService,
@@ -34,6 +41,7 @@ import {
     FulfillmentManageGuard,
     ReturnsService,
     ReplacementsService,
+    TrackingService,
   ],
 })
 export class OrdersModule {}

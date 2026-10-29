@@ -37,6 +37,8 @@ test.describe('System & OpenAPI', () => {
       'Orders / Admin',
       'Returns / Customer',
       'Returns / Admin',
+      'Tracking / Customer',
+      'Tracking / Admin',
       'Payments / Customer',
       'Payments / Admin',
       'Payments / Webhooks',
