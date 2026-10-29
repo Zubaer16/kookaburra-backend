@@ -12,6 +12,11 @@ export class CustomerProfileDto {
   @ApiProperty({ format: 'uuid' }) id!: string
   @ApiProperty({ format: 'email' }) email!: string
   @ApiProperty() displayName!: string
+  @ApiProperty({
+    description:
+      'Email ownership verified using a one-time token; not a login prerequisite yet',
+  })
+  emailVerified!: boolean
   @ApiProperty({ enum: ['CUSTOMER'] }) role!: 'CUSTOMER'
   @ApiProperty({ format: 'date-time' }) createdAt!: string
 }

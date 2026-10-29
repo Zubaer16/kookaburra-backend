@@ -57,6 +57,11 @@ describe('environment configuration', () => {
       }).STRIPE_TEST_ENABLED,
     ).toBe(true)
   })
+  it('validates the separate email action encryption key without exposing it', () => {
+    expect(() => validateEnvironment({ AUTH_ACTION_TOKEN_ENCRYPTION_KEY: 'wrong' })).toThrow('AUTH_ACTION_TOKEN_ENCRYPTION_KEY')
+    expect(validateEnvironment({ AUTH_ACTION_TOKEN_ENCRYPTION_KEY: 'ab'.repeat(32) }).AUTH_ACTION_TOKEN_ENCRYPTION_KEY).toBe('ab'.repeat(32))
+    expect(validateEnvironment({}).AUTH_ACTION_TOKEN_ENCRYPTION_KEY).toBe('')
+  })
   it('uses restrictive defaults for local dev', () => {
     expect(validateEnvironment({})).toMatchObject({
       NODE_ENV: 'development',

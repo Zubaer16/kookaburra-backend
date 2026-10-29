@@ -1,5 +1,11 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger'
-import { IsEmail, IsString, MaxLength, MinLength } from 'class-validator'
+import {
+  IsEmail,
+  IsString,
+  MaxLength,
+  MinLength,
+  Matches,
+} from 'class-validator'
 
 export class CredentialsDto {
   @ApiProperty({ example: 'customer@example.com' })
@@ -80,4 +86,20 @@ export class ChangePasswordDto {
 export class PasswordChangedDto {
   @ApiProperty({ example: true }) changed!: boolean
   @ApiProperty({ example: true }) sessionsRevoked!: boolean
+}
+
+/** Opaque action token received via trusted email link; never returned by request API. */
+export class EmailVerificationConfirmDto {
+  @ApiProperty({
+    description: 'Opaque one-time verification token, received out of band',
+    writeOnly: true,
+    minLength: 40,
+    maxLength: 128,
+  })
+  @IsString()
+  @Matches(/^[A-Za-z0-9_-]{40,128}$/)
+  token!: string
+}
+export class EmailVerificationResultDto {
+  @ApiProperty({ example: true }) accepted!: boolean
 }

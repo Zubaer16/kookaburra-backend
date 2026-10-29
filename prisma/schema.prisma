@@ -54,8 +54,24 @@ model User {
   orders Order[]
   wishlistItems WishlistItem[]
   customerAddresses CustomerAddress[]
+  emailVerifiedAt DateTime? @map("email_verified_at")
+  emailVerification EmailVerificationChallenge?
 
   @@map("users")
+}
+
+// G2 / 05A-5: one revocable, time-limited email verification challenge
+// per customer. Only a SHA-256 digest is persisted; delivery payload is AEAD-encrypted.
+model EmailVerificationChallenge {
+  userId       String    @id @map("user_id") @db.Uuid
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash    String    @unique @map("token_hash") @db.VarChar(64)
+  expiresAt    DateTime  @map("expires_at")
+  requestedAt  DateTime  @default(now()) @map("requested_at")
+  consumedAt   DateTime? @map("consumed_at")
+
+  @@index([expiresAt])
+  @@map("email_verification_challenges")
 }
 
 model AuthSession {

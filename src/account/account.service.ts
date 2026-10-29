@@ -75,12 +75,18 @@ export class AccountService {
         id: true,
         email: true,
         displayName: true,
+        emailVerifiedAt: true,
         role: true,
         createdAt: true,
       },
     })
     if (!user) throw new NotFoundException('Customer account not found')
-    return { ...user, createdAt: user.createdAt.toISOString() }
+    const { emailVerifiedAt, ...safeUser } = user
+    return {
+      ...safeUser,
+      emailVerified: emailVerifiedAt !== null,
+      createdAt: user.createdAt.toISOString(),
+    }
   }
 
   async updateProfile(userId: string, displayName: string) {

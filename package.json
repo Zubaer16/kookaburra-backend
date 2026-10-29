@@ -54,7 +54,8 @@
     "test:api:visual:wishlist": "npm run build && node scripts/run-api-tests.cjs visual-wishlist",
     "test:api:visual:account": "npm run build && node scripts/run-api-tests.cjs visual-account",
     "test:api:visual:customers": "npm run build && node scripts/run-api-tests.cjs visual-customers",
-    "test:api:visual:password-change": "npm run build && node scripts/run-api-tests.cjs visual-password-change"
+    "test:api:visual:password-change": "npm run build && node scripts/run-api-tests.cjs visual-password-change",
+    "test:api:visual:email-verification": "npm run build && node scripts/run-api-tests.cjs visual-email-verification"
   },
   "engines": {
     "node": ">=24.11.0 <25"

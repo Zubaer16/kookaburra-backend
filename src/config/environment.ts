@@ -11,6 +11,7 @@ export type Environment = {
   SWAGGER_ENABLED: boolean
   DATABASE_URL: string
   JWT_ACCESS_SECRET: string
+  AUTH_ACTION_TOKEN_ENCRYPTION_KEY: string
   MEDIA_CLOUD_NAME: string
   MEDIA_API_KEY: string
   MEDIA_API_SECRET: string
@@ -95,6 +96,15 @@ export function validateEnvironment(raw: Record<string, unknown>): Environment {
   }
   if ((mode === 'production' || db.length > 0) && secret.length < 32) {
     throw new Error('JWT_ACCESS_SECRET requires at least 32 characters')
+  }
+  const actionKey =
+    typeof raw.AUTH_ACTION_TOKEN_ENCRYPTION_KEY === 'string'
+      ? raw.AUTH_ACTION_TOKEN_ENCRYPTION_KEY.trim()
+      : ''
+  if (actionKey && !/^[a-fA-F0-9]{64}$/.test(actionKey)) {
+    throw new Error(
+      'AUTH_ACTION_TOKEN_ENCRYPTION_KEY must be 32 random bytes as 64 hex characters',
+    )
   }
   if (mode === 'production' && !db) {
     throw new Error('Production requires DATABASE_URL')
@@ -283,5 +293,6 @@ export function validateEnvironment(raw: Record<string, unknown>): Environment {
     SWAGGER_ENABLED: enabled,
     DATABASE_URL: db,
     JWT_ACCESS_SECRET: secret,
+    AUTH_ACTION_TOKEN_ENCRYPTION_KEY: actionKey,
   }
 }

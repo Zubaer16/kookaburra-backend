@@ -3,6 +3,7 @@ import {
   ConflictException,
   Injectable,
   UnauthorizedException,
+  ServiceUnavailableException,
 } from '@nestjs/common'
 import { ConfigService } from '@nestjs/config'
 import { JwtService } from '@nestjs/jwt'
@@ -12,12 +13,14 @@ import { Environment } from '../config/environment'
 import type { UserRole } from '../generated/prisma/enums'
 import {
   ChangePasswordDto,
+  EmailVerificationConfirmDto,
   CredentialsDto,
   RefreshDto,
   TokenPairDto,
 } from './auth.dto'
 import { hashPassword, verifyPassword } from './password'
 import { SafeUser } from './auth.types'
+import { encryptEmailActionToken } from './email-verification.crypto'
 
 const REFRESH_MS = 30 * 24 * 60 * 60 * 1000
 const ACCESS_SECONDS = 15 * 60
@@ -261,6 +264,81 @@ export class AuthService {
       })
       return { changed: true, sessionsRevoked: true }
     })
+  }
+
+  /** G2/05A-5: no public email enumeration and no secret in HTTP/DB plaintext.
+   * Per-user row lock serializes resend/confirmation; cooldown is durable.
+   * Actual SMTP transport deliberately waits for G7. */
+  async requestEmailVerification(userId: string): Promise<{ accepted: boolean }> {
+    const key = this.config.get('AUTH_ACTION_TOKEN_ENCRYPTION_KEY', { infer: true })
+    if (!key)
+      throw new ServiceUnavailableException('Email verification delivery is not configured')
+    const now = new Date()
+    await this.database.client.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT id FROM users WHERE id = ${userId}::uuid FOR UPDATE`
+      const user = await tx.user.findUnique({ where: { id: userId } })
+      if (!user || user.status !== 'ACTIVE' || user.role !== 'CUSTOMER')
+        throw new UnauthorizedException()
+      if (user.emailVerifiedAt) return
+      const prior = await tx.emailVerificationChallenge.findUnique({ where: { userId } })
+      // Silent cooldown: do not reveal previous token or churn the encrypted event.
+      if (prior && now.getTime() - prior.requestedAt.getTime() < 60_000) return
+      const token = randomBytes(48).toString('base64url')
+      const tokenHash = hashToken(token)
+      const expiresAt = new Date(now.getTime() + 30 * 60_000)
+      await tx.emailVerificationChallenge.upsert({
+        where: { userId },
+        create: { userId, tokenHash, requestedAt: now, expiresAt },
+        update: { tokenHash, requestedAt: now, expiresAt, consumedAt: null },
+      })
+      const eventId = randomUUID()
+      await tx.outboxEvent.create({
+        data: {
+          id: eventId,
+          eventType: 'auth.email_verification.requested',
+          payload: {
+            userId,
+            eventId,
+            token: encryptEmailActionToken(key, token, `${userId}:${eventId}`),
+            expiresAt: expiresAt.toISOString(),
+            // G7 must verify the token hash is still current before sending.
+          },
+        },
+      })
+      await tx.auditEvent.create({
+        data: { actorId: userId, action: 'customer.email_verification_requested', targetType: 'user', targetId: userId },
+      })
+    })
+    return { accepted: true }
+  }
+
+  /** One-time consume + mark verified under the same lock used by issuance. */
+  async confirmEmailVerification(dto: EmailVerificationConfirmDto): Promise<{ accepted: boolean }> {
+    const challenge = await this.database.client.emailVerificationChallenge.findUnique({
+      where: { tokenHash: hashToken(dto.token) },
+      select: { userId: true },
+    })
+    if (!challenge)
+      throw new BadRequestException('Invalid or expired verification token')
+    await this.database.client.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT id FROM users WHERE id = ${challenge.userId}::uuid FOR UPDATE`
+      const current = await tx.emailVerificationChallenge.findUnique({ where: { userId: challenge.userId } })
+      const user = await tx.user.findUnique({ where: { id: challenge.userId } })
+      const now = new Date()
+      if (!current || current.tokenHash !== hashToken(dto.token) || current.consumedAt || current.expiresAt <= now ||
+          !user || user.role !== 'CUSTOMER' || user.status !== 'ACTIVE' || user.emailVerifiedAt)
+        throw new BadRequestException('Invalid or expired verification token')
+      await tx.emailVerificationChallenge.update({
+        where: { userId: challenge.userId }, data: { consumedAt: now },
+      })
+      await tx.user.update({
+        where: { id: challenge.userId }, data: { emailVerifiedAt: now },
+      })
+      await tx.auditEvent.create({
+        data: { actorId: challenge.userId, action: 'customer.email_verified', targetType: 'user', targetId: challenge.userId },
+      })
+    })
+    return { accepted: true }
   }
 
   // For future permission-scoped RBAC; only role enforcement is live in this phase.

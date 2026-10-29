@@ -11,6 +11,8 @@ import {
   ApiBearerAuth,
   ApiCreatedResponse,
   ApiOkResponse,
+  ApiAcceptedResponse,
+  ApiBadRequestResponse,
   ApiOperation,
   ApiTags,
 } from '@nestjs/swagger'
@@ -19,6 +21,8 @@ import { AccessGuard } from './access.guard'
 import { AuthenticatedRequest } from './auth.types'
 import {
   ChangePasswordDto,
+  EmailVerificationConfirmDto,
+  EmailVerificationResultDto,
   PasswordChangedDto,
   CredentialsDto,
   RefreshDto,
@@ -78,6 +82,37 @@ export class CustomerAuthController {
   ): Promise<PasswordChangedDto> {
     // Guard authenticates; service checks role again inside DB transaction.
     return this.auth.changePassword(req.authUser!.id, dto)
+  }
+
+  @Post('email-verification/request')
+  @HttpCode(202)
+  @UseGuards(AccessGuard)
+  @ApiBearerAuth('access-token')
+  @ApiOperation({
+    summary: 'Request email verification for the signed-in customer',
+    description:
+      'Queues an AES-GCM encrypted delivery event (G7 email sender pending). Never returns the token; 60-second resend cooldown.',
+  })
+  @ApiAcceptedResponse({ type: EmailVerificationResultDto })
+  requestEmailVerification(
+    @Req() req: AuthenticatedRequest,
+  ): Promise<EmailVerificationResultDto> {
+    return this.auth.requestEmailVerification(req.authUser!.id)
+  }
+
+  @Post('email-verification/confirm')
+  @HttpCode(200)
+  @ApiOperation({
+    summary: 'Consume one-time email verification token',
+    description:
+      '30-minute token expiry. No public token issuance or debug delivery endpoint.',
+  })
+  @ApiOkResponse({ type: EmailVerificationResultDto })
+  @ApiBadRequestResponse({ description: 'Invalid, consumed or expired token' })
+  confirmEmailVerification(
+    @Body() dto: EmailVerificationConfirmDto,
+  ): Promise<EmailVerificationResultDto> {
+    return this.auth.confirmEmailVerification(dto)
   }
 
   @Get('me')

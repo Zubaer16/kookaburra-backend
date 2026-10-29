@@ -55,6 +55,8 @@ test.describe('System & OpenAPI', () => {
       '/v1/auth/refresh',
       '/v1/auth/logout',
       '/v1/auth/me',
+      '/v1/auth/email-verification/request',
+      '/v1/auth/email-verification/confirm',
       '/v1/admin/auth/login',
       '/v1/admin/auth/me',
       '/v1/categories',

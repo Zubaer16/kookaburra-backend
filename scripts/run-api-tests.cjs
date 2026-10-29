@@ -32,6 +32,7 @@ const allowed = [
   'visual-account',
   'visual-customers',
   'visual-password-change',
+  'visual-email-verification',
   'visual-report',
   'security',
 ]
@@ -64,6 +65,7 @@ function baseEnv() {
     CORS_ORIGINS: 'http://localhost:3000,http://localhost:3001',
     SWAGGER_ENABLED: 'true',
     JWT_ACCESS_SECRET: randomBytes(48).toString('hex'),
+    AUTH_ACTION_TOKEN_ENCRYPTION_KEY: randomBytes(32).toString('hex'),
     // Never let API tests call a developer/client Cloudinary account.
     MEDIA_CLOUD_NAME: '',
     MEDIA_API_KEY: '',
@@ -207,7 +209,8 @@ try {
     mode === 'visual-wishlist' ||
     mode === 'visual-account' ||
     mode === 'visual-customers' ||
-    mode === 'visual-password-change'
+    mode === 'visual-password-change' ||
+    mode === 'visual-email-verification'
   ) {
     safe.MEDIA_PROVIDER = 'disk'
     safe.MEDIA_DISK_ROOT = path.join(
@@ -236,7 +239,8 @@ try {
       mode === 'visual-wishlist' ||
       mode === 'visual-account' ||
       mode === 'visual-customers' ||
-      mode === 'visual-password-change'
+      mode === 'visual-password-change' ||
+      mode === 'visual-email-verification'
       ? [
           'test',
           '--config=playwright.swagger.config.mjs',
@@ -282,6 +286,9 @@ try {
             : []),
           ...(mode === 'visual-password-change'
             ? ['--grep', '05A-4 Swagger Chromium: customer password change']
+            : []),
+          ...(mode === 'visual-email-verification'
+            ? ['--grep', '05A-5 Swagger Chromium: email verification']
             : []),
         ]
       : mode === 'security'
