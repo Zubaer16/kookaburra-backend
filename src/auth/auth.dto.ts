@@ -51,3 +51,33 @@ export class TokenPairDto {
   @ApiProperty() expiresIn!: number
   @ApiProperty({ type: SafeUserDto }) user!: SafeUserDto
 }
+
+/** Authenticated customer self-service only. No email/role updates. */
+export class ChangePasswordDto {
+  @ApiProperty({
+    minLength: 12,
+    maxLength: 128,
+    format: 'password',
+    writeOnly: true,
+  })
+  @IsString()
+  @MinLength(12)
+  @MaxLength(128)
+  currentPassword!: string
+
+  @ApiProperty({
+    minLength: 12,
+    maxLength: 128,
+    format: 'password',
+    writeOnly: true,
+  })
+  @IsString()
+  @MinLength(12)
+  @MaxLength(128)
+  newPassword!: string
+}
+
+export class PasswordChangedDto {
+  @ApiProperty({ example: true }) changed!: boolean
+  @ApiProperty({ example: true }) sessionsRevoked!: boolean
+}

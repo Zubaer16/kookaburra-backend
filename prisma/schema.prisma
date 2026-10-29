@@ -40,6 +40,7 @@ model User {
   email        String        @unique @db.VarChar(320)
   displayName  String        @default("") @map("display_name") @db.VarChar(120)
   passwordHash String        @map("password_hash") @db.Text
+  sessionVersion Int         @default(0) @map("session_version")
   role         UserRole      @default(CUSTOMER)
   status       UserStatus    @default(ACTIVE)
   createdAt    DateTime      @default(now()) @map("created_at")
@@ -63,6 +64,7 @@ model AuthSession {
   user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   familyId    String    @map("family_id") @db.Uuid
   tokenHash   String    @unique @map("token_hash") @db.VarChar(64)
+  sessionVersion Int   @default(0) @map("session_version")
   expiresAt   DateTime  @map("expires_at")
   revokedAt   DateTime? @map("revoked_at")
   createdAt   DateTime  @default(now()) @map("created_at")

@@ -18,6 +18,8 @@ import { AuthService } from './auth.service'
 import { AccessGuard } from './access.guard'
 import { AuthenticatedRequest } from './auth.types'
 import {
+  ChangePasswordDto,
+  PasswordChangedDto,
   CredentialsDto,
   RefreshDto,
   SafeUserDto,
@@ -57,6 +59,25 @@ export class CustomerAuthController {
   @ApiOperation({ summary: 'Revoke a presented refresh token' })
   logout(@Body() dto: RefreshDto): Promise<{ loggedOut: boolean }> {
     return this.auth.logout(dto)
+  }
+
+  @Post('change-password')
+  @HttpCode(200)
+  @UseGuards(AccessGuard)
+  @ApiBearerAuth('access-token')
+  @ApiOperation({
+    summary:
+      'Authenticated customer changes password, revoking existing sessions',
+    description:
+      'Requires current password. All prior access/refresh tokens are invalidated; sign in again.',
+  })
+  @ApiOkResponse({ type: PasswordChangedDto })
+  changePassword(
+    @Req() req: AuthenticatedRequest,
+    @Body() dto: ChangePasswordDto,
+  ): Promise<PasswordChangedDto> {
+    // Guard authenticates; service checks role again inside DB transaction.
+    return this.auth.changePassword(req.authUser!.id, dto)
   }
 
   @Get('me')

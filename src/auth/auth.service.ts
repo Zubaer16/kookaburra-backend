@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ConflictException,
   Injectable,
   UnauthorizedException,
@@ -9,7 +10,12 @@ import { createHash, randomBytes, randomUUID } from 'node:crypto'
 import { DatabaseService } from '../database/database.service'
 import { Environment } from '../config/environment'
 import type { UserRole } from '../generated/prisma/enums'
-import { CredentialsDto, RefreshDto, TokenPairDto } from './auth.dto'
+import {
+  ChangePasswordDto,
+  CredentialsDto,
+  RefreshDto,
+  TokenPairDto,
+} from './auth.dto'
 import { hashPassword, verifyPassword } from './password'
 import { SafeUser } from './auth.types'
 
@@ -29,6 +35,7 @@ export class AuthService {
 
   private async issue(
     user: SafeUser,
+    sessionVersion: number,
     familyId = randomUUID(),
   ): Promise<TokenPairDto> {
     const refreshToken = randomBytes(48).toString('base64url')
@@ -37,18 +44,20 @@ export class AuthService {
         userId: user.id,
         familyId,
         tokenHash: hashToken(refreshToken),
+        sessionVersion,
         expiresAt: new Date(Date.now() + REFRESH_MS),
       },
     })
-    return this.pair(user, refreshToken)
+    return this.pair(user, refreshToken, sessionVersion)
   }
 
   private async pair(
     user: SafeUser,
     refreshToken: string,
+    sessionVersion: number,
   ): Promise<TokenPairDto> {
     const accessToken = await this.jwt.signAsync(
-      { sub: user.id, typ: 'access', role: user.role },
+      { sub: user.id, typ: 'access', role: user.role, sv: sessionVersion },
       {
         secret: this.config.get('JWT_ACCESS_SECRET', { infer: true }),
         expiresIn: ACCESS_SECONDS,
@@ -94,7 +103,10 @@ export class AuthService {
       }
       throw error
     }
-    return this.issue({ id: user.id, email: user.email, role: user.role })
+    return this.issue(
+      { id: user.id, email: user.email, role: user.role },
+      user.sessionVersion,
+    )
   }
 
   async login(dto: CredentialsDto, adminOnly = false): Promise<TokenPairDto> {
@@ -119,7 +131,10 @@ export class AuthService {
         targetId: user.id,
       },
     })
-    return this.issue({ id: user.id, email: user.email, role: user.role })
+    return this.issue(
+      { id: user.id, email: user.email, role: user.role },
+      user.sessionVersion,
+    )
   }
 
   async refresh(dto: RefreshDto): Promise<TokenPairDto> {
@@ -136,7 +151,11 @@ export class AuthService {
       })
       throw new UnauthorizedException('Refresh token replay detected')
     }
-    if (record.expiresAt <= new Date() || record.user.status !== 'ACTIVE') {
+    if (
+      record.expiresAt <= new Date() ||
+      record.user.status !== 'ACTIVE' ||
+      record.sessionVersion !== record.user.sessionVersion
+    ) {
       throw new UnauthorizedException('Refresh token expired or user disabled')
     }
     const refreshToken = randomBytes(48).toString('base64url')
@@ -144,6 +163,7 @@ export class AuthService {
       const consumed = await tx.authSession.updateMany({
         where: {
           id: record.id,
+          sessionVersion: record.sessionVersion,
           revokedAt: null,
           expiresAt: { gt: new Date() },
         },
@@ -156,6 +176,7 @@ export class AuthService {
           userId: record.userId,
           familyId: record.familyId,
           tokenHash: hashToken(refreshToken),
+          sessionVersion: record.sessionVersion,
           expiresAt: new Date(Date.now() + REFRESH_MS),
         },
       })
@@ -163,6 +184,7 @@ export class AuthService {
     return this.pair(
       { id: record.user.id, email: record.user.email, role: record.user.role },
       refreshToken,
+      record.sessionVersion,
     )
   }
 
@@ -179,6 +201,65 @@ export class AuthService {
     await this.database.client.authSession.updateMany({
       where: { userId, revokedAt: null },
       data: { revokedAt: new Date() },
+    })
+  }
+
+  /** Change a CUSTOMER password without allowing an unauthenticated reset.
+   * A compare-and-swap prevents two concurrent changes from both succeeding.
+   * Password update, session revocation, and audit are one DB transaction. */
+  async changePassword(
+    userId: string,
+    dto: ChangePasswordDto,
+  ): Promise<{ changed: boolean; sessionsRevoked: boolean }> {
+    const user = await this.database.client.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        passwordHash: true,
+        sessionVersion: true,
+        role: true,
+        status: true,
+      },
+    })
+    if (
+      !user ||
+      user.role !== 'CUSTOMER' ||
+      user.status !== 'ACTIVE' ||
+      !(await verifyPassword(dto.currentPassword, user.passwordHash))
+    ) {
+      throw new UnauthorizedException('Current password is incorrect')
+    }
+    if (dto.currentPassword === dto.newPassword)
+      throw new BadRequestException('New password must be different')
+    const nextHash = await hashPassword(dto.newPassword)
+    return this.database.client.$transaction(async (tx) => {
+      const updated = await tx.user.updateMany({
+        where: {
+          id: user.id,
+          role: 'CUSTOMER',
+          status: 'ACTIVE',
+          passwordHash: user.passwordHash,
+          sessionVersion: user.sessionVersion,
+        },
+        data: { passwordHash: nextHash, sessionVersion: { increment: 1 } },
+      })
+      if (updated.count !== 1)
+        throw new ConflictException(
+          'Credentials changed; retry with current session',
+        )
+      await tx.authSession.updateMany({
+        where: { userId: user.id, revokedAt: null },
+        data: { revokedAt: new Date() },
+      })
+      await tx.auditEvent.create({
+        data: {
+          actorId: user.id,
+          action: 'customer.password_changed',
+          targetType: 'user',
+          targetId: user.id,
+        },
+      })
+      return { changed: true, sessionsRevoked: true }
     })
   }
 

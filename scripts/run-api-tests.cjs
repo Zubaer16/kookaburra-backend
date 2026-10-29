@@ -31,6 +31,7 @@ const allowed = [
   'visual-wishlist',
   'visual-account',
   'visual-customers',
+  'visual-password-change',
   'visual-report',
   'security',
 ]
@@ -205,7 +206,8 @@ try {
     mode === 'visual-admin-cancel' ||
     mode === 'visual-wishlist' ||
     mode === 'visual-account' ||
-    mode === 'visual-customers'
+    mode === 'visual-customers' ||
+    mode === 'visual-password-change'
   ) {
     safe.MEDIA_PROVIDER = 'disk'
     safe.MEDIA_DISK_ROOT = path.join(
@@ -233,7 +235,8 @@ try {
       mode === 'visual-admin-cancel' ||
       mode === 'visual-wishlist' ||
       mode === 'visual-account' ||
-      mode === 'visual-customers'
+      mode === 'visual-customers' ||
+      mode === 'visual-password-change'
       ? [
           'test',
           '--config=playwright.swagger.config.mjs',
@@ -276,6 +279,9 @@ try {
             : []),
           ...(mode === 'visual-customers'
             ? ['--grep', '05A-3 Swagger Chromium: admin customer directory']
+            : []),
+          ...(mode === 'visual-password-change'
+            ? ['--grep', '05A-4 Swagger Chromium: customer password change']
             : []),
         ]
       : mode === 'security'

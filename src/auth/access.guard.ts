@@ -24,17 +24,18 @@ export class AccessGuard implements CanActivate {
     const req = context.switchToHttp().getRequest<AuthenticatedRequest>()
     const match = /^Bearer (\S+)$/i.exec(req.headers.authorization ?? '')
     if (!match) throw new UnauthorizedException('Valid bearer token required')
-    let payload: { sub?: string; typ?: string }
+    let payload: { sub?: string; typ?: string; sv?: number }
     try {
-      payload = await this.jwt.verifyAsync<{ sub: string; typ: string }>(
-        match[1]!,
-        {
-          secret: this.config.get('JWT_ACCESS_SECRET', { infer: true }),
-          issuer: 'commerce-api',
-          audience: 'commerce-clients',
-          algorithms: ['HS256'],
-        },
-      )
+      payload = await this.jwt.verifyAsync<{
+        sub: string
+        typ: string
+        sv?: number
+      }>(match[1]!, {
+        secret: this.config.get('JWT_ACCESS_SECRET', { infer: true }),
+        issuer: 'commerce-api',
+        audience: 'commerce-clients',
+        algorithms: ['HS256'],
+      })
     } catch {
       throw new UnauthorizedException('Invalid or expired access token')
     }
@@ -45,6 +46,10 @@ export class AccessGuard implements CanActivate {
     })
     if (!user || user.status !== 'ACTIVE')
       throw new UnauthorizedException('Account disabled or missing')
+    // Legacy JWTs predate sv and implicitly have epoch 0. After password
+    // change, all old access tokens fail immediately, not just refresh tokens.
+    if ((payload.sv ?? 0) !== user.sessionVersion)
+      throw new UnauthorizedException('Session expired; sign in again')
     const resolved = await this.permissions.resolve(user)
     req.authUser = {
       id: user.id,
