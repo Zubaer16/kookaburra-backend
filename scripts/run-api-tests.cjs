@@ -27,6 +27,7 @@ const allowed = [
   'visual-returns',
   'visual-replacements',
   'visual-tracking',
+  'visual-admin-cancel',
   'visual-report',
   'security',
 ]
@@ -197,7 +198,8 @@ try {
     mode === 'visual-fulfillment' ||
     mode === 'visual-returns' ||
     mode === 'visual-replacements' ||
-    mode === 'visual-tracking'
+    mode === 'visual-tracking' ||
+    mode === 'visual-admin-cancel'
   ) {
     safe.MEDIA_PROVIDER = 'disk'
     safe.MEDIA_DISK_ROOT = path.join(
@@ -221,7 +223,8 @@ try {
       mode === 'visual-fulfillment' ||
       mode === 'visual-returns' ||
       mode === 'visual-replacements' ||
-      mode === 'visual-tracking'
+      mode === 'visual-tracking' ||
+      mode === 'visual-admin-cancel'
       ? [
           'test',
           '--config=playwright.swagger.config.mjs',
@@ -252,6 +255,9 @@ try {
             : []),
           ...(mode === 'visual-tracking'
             ? ['--grep', '04D-2B-2 Swagger Chromium: tracking']
+            : []),
+          ...(mode === 'visual-admin-cancel'
+            ? ['--grep', '04D-2B-3 Swagger Chromium: Admin unpaid cancellation']
             : []),
         ]
       : mode === 'security'

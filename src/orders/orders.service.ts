@@ -380,6 +380,7 @@ export class OrdersService {
     tx: Prisma.TransactionClient,
     order: OrderRecord,
     target: 'CANCELLED' | 'EXPIRED',
+    adminActorId?: string,
   ) {
     if (order.status !== 'PENDING_PAYMENT') return order
     // A signed success receipt awaiting provider verification fences allocation
@@ -448,7 +449,9 @@ export class OrdersService {
             reason:
               target === 'EXPIRED'
                 ? 'PAYMENT_WINDOW_ELAPSED'
-                : 'CUSTOMER_CANCELLED',
+                : adminActorId
+                  ? 'ADMIN_CANCELLED'
+                  : 'CUSTOMER_CANCELLED',
           },
         },
       },
@@ -464,7 +467,50 @@ export class OrdersService {
         },
       },
     })
+    if (adminActorId) {
+      await tx.auditEvent.create({
+        data: {
+          actorId: adminActorId,
+          action:
+            target === 'EXPIRED' ? 'order.expire.admin' : 'order.cancel.admin',
+          targetType: 'order',
+          targetId: order.id,
+        },
+      })
+    }
     return changed
+  }
+
+  /** G1-3: same fenced cancellation path as customer; admin never cancels a paid
+   * order through this route. The order row is locked before testing payment state,
+   * then allocation release, status, event and audit commit atomically. Retries
+   * on a closed order are read-only (no duplicate inventory/audit/outbox writes).
+   */
+  async adminCancel(id: string, actorId: string) {
+    return this.database.client.$transaction(
+      async (tx) => {
+        const locked = await tx.$queryRaw<Array<{ id: string }>>`
+          SELECT id FROM orders WHERE id = ${id}::uuid FOR UPDATE
+        `
+        if (!locked.length) throw new NotFoundException('Order not found')
+        const order = await tx.order.findUniqueOrThrow({
+          where: { id },
+          include: includeOrder,
+        })
+        if (order.status === 'PAID')
+          throw new ConflictException(
+            'Paid orders require a separate refund/recovery review',
+          )
+        const closed = await this.closePending(
+          tx,
+          order,
+          order.paymentDeadlineAt <= new Date() ? 'EXPIRED' : 'CANCELLED',
+          actorId,
+        )
+        return present(closed)
+      },
+      { timeout: 15000 },
+    )
   }
 
   async cancel(customerId: string, id: string) {

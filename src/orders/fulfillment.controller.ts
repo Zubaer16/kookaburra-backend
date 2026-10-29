@@ -33,6 +33,8 @@ import {
 } from './fulfillment.dto'
 import { FulfillmentManageGuard } from './fulfillment.guard'
 import { FulfillmentService } from './fulfillment.service'
+import { OrdersService } from './orders.service'
+import { OrderResponseDto } from './orders.dto'
 
 @ApiTags('Orders / Admin')
 @ApiBearerAuth('access-token')
@@ -41,7 +43,10 @@ import { FulfillmentService } from './fulfillment.service'
 @ApiUnauthorizedResponse({ description: 'Admin JWT required' })
 @ApiForbiddenResponse({ description: 'orders.manage permission required' })
 export class FulfillmentAdminController {
-  constructor(private readonly fulfillment: FulfillmentService) {}
+  constructor(
+    private readonly fulfillment: FulfillmentService,
+    private readonly orders: OrdersService,
+  ) {}
 
   @Get()
   @ApiOperation({
@@ -59,6 +64,25 @@ export class FulfillmentAdminController {
   @ApiNotFoundResponse({ description: 'Order not found' })
   get(@Param('id', ParseUUIDPipe) id: string) {
     return this.fulfillment.get(id)
+  }
+
+  @Post(':id/cancel')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary:
+      'Idempotently cancel unpaid order (or expire overdue order) and release its allocation; never cancel paid orders or issue refunds',
+  })
+  @ApiOkResponse({ type: OrderResponseDto })
+  @ApiConflictResponse({
+    description:
+      'Paid or financially in-flight order cannot be cancelled via unpaid-order action',
+  })
+  @ApiNotFoundResponse({ description: 'Order not found' })
+  cancel(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Req() req: AuthenticatedRequest,
+  ) {
+    return this.orders.adminCancel(id, req.authUser!.id)
   }
 
   @Post(':id/fulfillment/start')
