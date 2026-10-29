@@ -49,3 +49,8 @@
 ### Phase 04C-2B2B (pending local acceptance)
 
 TEST-only fixed-card confirm/capture with order-expiry fencing; receipt-driven settlement unchanged. Provider refunds, real customer confirmation/3DS and recovery automation remain deferred. See `docs/PHASE04C2B2B_TEST_AUTHORIZE_CAPTURE.md`.
+
+## Phase 04D-2A — Returns and controlled restocking
+
+- [x] Implementation authored: customer return requests, admin inspection, idempotent physical restocking, append-only movement/audit/outbox.
+- [ ] Node 24/PostgreSQL/Chromium acceptance pending. Refunds and stock returns deliberately independent.

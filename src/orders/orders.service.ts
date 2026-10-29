@@ -65,6 +65,7 @@ function present(order: OrderRecord) {
     fulfillment: presentShipment(order.shipment),
     createdAt: order.createdAt,
     lines: order.lines.map((line) => ({
+      id: line.id,
       productId: line.productId,
       variantId: line.variantId,
       title: line.titleSnapshot,

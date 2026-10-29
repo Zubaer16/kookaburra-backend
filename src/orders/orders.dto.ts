@@ -109,6 +109,11 @@ export class OrderQueryDto {
 }
 
 export class OrderLineResponseDto {
+  @ApiProperty({
+    format: 'uuid',
+    description: 'Immutable order line ID for returns',
+  })
+  id!: string
   @ApiProperty({ format: 'uuid' }) productId!: string
   @ApiProperty({ format: 'uuid', nullable: true }) variantId!: string | null
   @ApiProperty() title!: string

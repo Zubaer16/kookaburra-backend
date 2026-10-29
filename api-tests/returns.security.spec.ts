@@ -1,0 +1,73 @@
+import { randomUUID } from 'node:crypto'
+import { expect, test } from '@playwright/test'
+import { CatalogTestFixture, bearer } from './catalog-test-support'
+
+test('04D-2A return access boundary and mass-assignment rejection', async ({
+  request,
+}) => {
+  const f = new CatalogTestFixture(request)
+  try {
+    const owner = await f.account('OWNER')
+    const customer = await f.account('CUSTOMER')
+    const orderId = randomUUID()
+    const returnId = randomUUID()
+    const createUrl = `/v1/orders/${orderId}/returns`
+    const data = {
+      requestId: randomUUID(),
+      orderLineId: randomUUID(),
+      quantity: 1,
+      reason: 'OTHER',
+    }
+    expect((await request.post(createUrl, { data })).status()).toBe(401)
+    expect(
+      (
+        await request.post(createUrl, { headers: bearer(owner.token), data })
+      ).status(),
+    ).toBe(403)
+    expect(
+      (
+        await request.post(createUrl, {
+          headers: bearer(customer.token),
+          data: { ...data, stockOnHand: 99 },
+        })
+      ).status(),
+    ).toBe(400)
+    expect(
+      (
+        await request.post(createUrl, { headers: bearer(customer.token), data })
+      ).status(),
+    ).toBe(404)
+    const admin = `/v1/admin/orders/${orderId}/returns/${returnId}/restock`
+    expect(
+      (
+        await request.post(admin, { data: { requestId: randomUUID() } })
+      ).status(),
+    ).toBe(401)
+    expect(
+      (
+        await request.post(admin, {
+          headers: bearer(customer.token),
+          data: { requestId: randomUUID() },
+        })
+      ).status(),
+    ).toBe(403)
+    expect(
+      (
+        await request.post(admin, {
+          headers: bearer(owner.token),
+          data: { requestId: randomUUID(), quantity: 999 },
+        })
+      ).status(),
+    ).toBe(400)
+    expect(
+      (
+        await request.post(admin, {
+          headers: bearer(owner.token),
+          data: { requestId: randomUUID() },
+        })
+      ).status(),
+    ).toBe(404)
+  } finally {
+    await f.close()
+  }
+})

@@ -121,6 +121,14 @@ export async function createHttpApp(): Promise<INestApplication> {
         'Permission-gated paid order processing and single-shipment tracking',
       )
       .addTag(
+        'Returns / Customer',
+        'Customer return requests for paid delivered order lines',
+      )
+      .addTag(
+        'Returns / Admin',
+        'Permission-gated inspection and controlled stock restocking',
+      )
+      .addTag(
         'Payments / Customer',
         'Stripe TEST intent preparation; verified settlement is operator-worker-only; card confirmation disabled',
       )

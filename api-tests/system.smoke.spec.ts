@@ -35,6 +35,8 @@ test.describe('System & OpenAPI', () => {
       'Checkout / Customer',
       'Orders / Customer',
       'Orders / Admin',
+      'Returns / Customer',
+      'Returns / Admin',
       'Payments / Customer',
       'Payments / Admin',
       'Payments / Webhooks',

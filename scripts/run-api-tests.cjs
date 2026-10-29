@@ -24,6 +24,7 @@ const allowed = [
   'visual-orders',
   'visual-payments',
   'visual-fulfillment',
+  'visual-returns',
   'visual-report',
   'security',
 ]
@@ -191,7 +192,8 @@ try {
     mode === 'visual-reservation' ||
     mode === 'visual-orders' ||
     mode === 'visual-payments' ||
-    mode === 'visual-fulfillment'
+    mode === 'visual-fulfillment' ||
+    mode === 'visual-returns'
   ) {
     safe.MEDIA_PROVIDER = 'disk'
     safe.MEDIA_DISK_ROOT = path.join(
@@ -212,7 +214,8 @@ try {
       mode === 'visual-reservation' ||
       mode === 'visual-orders' ||
       mode === 'visual-payments' ||
-      mode === 'visual-fulfillment'
+      mode === 'visual-fulfillment' ||
+      mode === 'visual-returns'
       ? [
           'test',
           '--config=playwright.swagger.config.mjs',
@@ -234,6 +237,9 @@ try {
             : []),
           ...(mode === 'visual-fulfillment'
             ? ['--grep', '04D-1 Swagger Chromium: orders admin']
+            : []),
+          ...(mode === 'visual-returns'
+            ? ['--grep', '04D-2A Swagger Chromium: returns']
             : []),
         ]
       : mode === 'security'

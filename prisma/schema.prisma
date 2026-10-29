@@ -507,6 +507,7 @@ model Order {
   paymentTransaction PaymentTransaction?
   refundRequests RefundRequest[]
   shipment OrderShipment?
+  returnRequests OrderReturn[]
 
   @@unique([customerId, requestId], map: "orders_customer_request_key")
   @@index([status, paymentDeadlineAt])
@@ -527,6 +528,7 @@ model OrderLine {
   quantity            Int
   unitPriceMinor      Int     @map("unit_price_minor")
   lineTotalMinor      Int     @map("line_total_minor")
+  returnRequests      OrderReturn[]
 
   @@index([orderId])
   @@map("order_lines")
@@ -699,4 +701,52 @@ model OrderShipmentEvent {
   @@unique([orderId, requestId], map: "order_shipment_events_order_request_key")
   @@index([shipmentId, createdAt])
   @@map("order_shipment_events")
+}
+
+// 04D-2A: Returns are separate from financial refunds. Receipt alone never
+// increases stock; only inspection-approved RESTOCKABLE units may be restocked.
+enum OrderReturnStatus {
+  REQUESTED
+  APPROVED
+  REJECTED
+  RECEIVED_RESTOCKABLE
+  RECEIVED_DAMAGED
+  RESTOCKED
+}
+
+model OrderReturn {
+  id           String            @id @default(uuid()) @db.Uuid
+  orderId      String            @map("order_id") @db.Uuid
+  order        Order             @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  orderLineId  String            @map("order_line_id") @db.Uuid
+  orderLine    OrderLine         @relation(fields: [orderLineId], references: [id], onDelete: Restrict)
+  requestId    String            @map("request_id") @db.Uuid
+  requestHash  String            @map("request_hash") @db.VarChar(64)
+  quantity     Int
+  reason       String            @db.VarChar(32)
+  status       OrderReturnStatus @default(REQUESTED)
+  createdAt    DateTime          @default(now()) @map("created_at")
+  updatedAt    DateTime          @updatedAt @map("updated_at")
+  events       OrderReturnEvent[]
+
+  @@unique([orderId, requestId], map: "order_returns_order_request_key")
+  @@index([orderLineId, status])
+  @@index([orderId, createdAt])
+  @@map("order_returns")
+}
+
+model OrderReturnEvent {
+  id          String            @id @default(uuid()) @db.Uuid
+  returnId    String            @map("return_id") @db.Uuid
+  orderReturn OrderReturn       @relation(fields: [returnId], references: [id], onDelete: Cascade)
+  requestId   String            @map("request_id") @db.Uuid
+  action      String            @db.VarChar(24)
+  actionHash  String            @map("action_hash") @db.VarChar(64)
+  status      OrderReturnStatus
+  actorId     String            @map("actor_id") @db.Uuid
+  createdAt   DateTime          @default(now()) @map("created_at")
+
+  @@unique([returnId, requestId], map: "order_return_events_return_request_key")
+  @@index([returnId, createdAt])
+  @@map("order_return_events")
 }

@@ -120,6 +120,11 @@ export class CatalogTestFixture {
                   'order.fulfillment.shipped',
                   'order.fulfillment.delivered',
                   'payment.test_refund_review_required',
+                  'order.return.requested',
+                  'order.return.approve',
+                  'order.return.reject',
+                  'order.return.receive',
+                  'order.return.restock',
                 ],
               },
               payload: { path: ['orderId'], equals: order.id },
@@ -138,6 +143,14 @@ export class CatalogTestFixture {
           where: {
             order: { customerId: { in: fixtureUserIds } },
           },
+        })
+        await this.db.orderReturnEvent.deleteMany({
+          where: {
+            orderReturn: { order: { customerId: { in: fixtureUserIds } } },
+          },
+        })
+        await this.db.orderReturn.deleteMany({
+          where: { order: { customerId: { in: fixtureUserIds } } },
         })
         await this.db.orderShipmentEvent.deleteMany({
           where: { orderId: { in: fixtureOrders.map((o) => o.id) } },
