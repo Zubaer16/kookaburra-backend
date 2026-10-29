@@ -19,6 +19,9 @@ describe('05A-4 customer password change transaction protections', () => {
         updateMany: jest.fn().mockResolvedValue({ count: changedCount }),
       },
       authSession: { updateMany: jest.fn().mockResolvedValue({ count: 2 }) },
+      passwordResetChallenge: {
+        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+      },
       auditEvent: { create: jest.fn().mockResolvedValue({ id: 'audit' }) },
     }
     const client = {
@@ -74,6 +77,7 @@ describe('05A-4 customer password change transaction protections', () => {
       }),
     ).rejects.toBeInstanceOf(ConflictException)
     expect(s.tx.authSession.updateMany).not.toHaveBeenCalled()
+    expect(s.tx.passwordResetChallenge.updateMany).not.toHaveBeenCalled()
     expect(s.tx.auditEvent.create).not.toHaveBeenCalled()
   })
 
@@ -92,6 +96,10 @@ describe('05A-4 customer password change transaction protections', () => {
     expect(s.tx.authSession.updateMany).toHaveBeenCalledWith({
       where: { userId: 'customer-id', revokedAt: null },
       data: { revokedAt: expect.any(Date) },
+    })
+    expect(s.tx.passwordResetChallenge.updateMany).toHaveBeenCalledWith({
+      where: { userId: 'customer-id', consumedAt: null },
+      data: { consumedAt: expect.any(Date) },
     })
     expect(s.tx.auditEvent.create).toHaveBeenCalledWith({
       data: {

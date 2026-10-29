@@ -23,6 +23,10 @@ import {
   ChangePasswordDto,
   EmailVerificationConfirmDto,
   EmailVerificationResultDto,
+  PasswordResetRequestDto,
+  PasswordResetConfirmDto,
+  PasswordResetRequestResultDto,
+  PasswordResetCompleteDto,
   PasswordChangedDto,
   CredentialsDto,
   RefreshDto,
@@ -37,7 +41,8 @@ export class CustomerAuthController {
 
   @Post('register')
   @ApiOperation({
-    summary: 'Register customer (email verification is not yet implemented)',
+    summary:
+      'Register customer (verification delivery becomes available in G7)',
   })
   @ApiCreatedResponse({ type: TokenPairDto })
   register(@Body() dto: CredentialsDto): Promise<TokenPairDto> {
@@ -113,6 +118,37 @@ export class CustomerAuthController {
     @Body() dto: EmailVerificationConfirmDto,
   ): Promise<EmailVerificationResultDto> {
     return this.auth.confirmEmailVerification(dto)
+  }
+
+  @Post('password-reset/request')
+  @HttpCode(202)
+  @ApiOperation({
+    summary: 'Request customer password recovery (non-enumerating)',
+    description:
+      'Always accepted for valid email input. A one-time token is queued encrypted for G7 delivery; no token or account existence is returned.',
+  })
+  @ApiAcceptedResponse({ type: PasswordResetRequestResultDto })
+  requestPasswordReset(
+    @Body() dto: PasswordResetRequestDto,
+  ): Promise<PasswordResetRequestResultDto> {
+    return this.auth.requestPasswordReset(dto)
+  }
+
+  @Post('password-reset/confirm')
+  @HttpCode(200)
+  @ApiOperation({
+    summary: 'Consume one-time reset token and revoke previous sessions',
+    description:
+      '30-minute expiry, single use. Password and session epoch change atomically.',
+  })
+  @ApiOkResponse({ type: PasswordResetCompleteDto })
+  @ApiBadRequestResponse({
+    description: 'Invalid, expired or consumed reset token',
+  })
+  confirmPasswordReset(
+    @Body() dto: PasswordResetConfirmDto,
+  ): Promise<PasswordResetCompleteDto> {
+    return this.auth.confirmPasswordReset(dto)
   }
 
   @Get('me')

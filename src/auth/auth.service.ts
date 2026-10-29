@@ -14,6 +14,8 @@ import type { UserRole } from '../generated/prisma/enums'
 import {
   ChangePasswordDto,
   EmailVerificationConfirmDto,
+  PasswordResetRequestDto,
+  PasswordResetConfirmDto,
   CredentialsDto,
   RefreshDto,
   TokenPairDto,
@@ -254,6 +256,11 @@ export class AuthService {
         where: { userId: user.id, revokedAt: null },
         data: { revokedAt: new Date() },
       })
+      // Changing a known password invalidates outstanding recovery tokens too.
+      await tx.passwordResetChallenge.updateMany({
+        where: { userId: user.id, consumedAt: null },
+        data: { consumedAt: new Date() },
+      })
       await tx.auditEvent.create({
         data: {
           actorId: user.id,
@@ -269,10 +276,16 @@ export class AuthService {
   /** G2/05A-5: no public email enumeration and no secret in HTTP/DB plaintext.
    * Per-user row lock serializes resend/confirmation; cooldown is durable.
    * Actual SMTP transport deliberately waits for G7. */
-  async requestEmailVerification(userId: string): Promise<{ accepted: boolean }> {
-    const key = this.config.get('AUTH_ACTION_TOKEN_ENCRYPTION_KEY', { infer: true })
+  async requestEmailVerification(
+    userId: string,
+  ): Promise<{ accepted: boolean }> {
+    const key = this.config.get('AUTH_ACTION_TOKEN_ENCRYPTION_KEY', {
+      infer: true,
+    })
     if (!key)
-      throw new ServiceUnavailableException('Email verification delivery is not configured')
+      throw new ServiceUnavailableException(
+        'Email verification delivery is not configured',
+      )
     const now = new Date()
     await this.database.client.$transaction(async (tx) => {
       await tx.$queryRaw`SELECT id FROM users WHERE id = ${userId}::uuid FOR UPDATE`
@@ -280,7 +293,9 @@ export class AuthService {
       if (!user || user.status !== 'ACTIVE' || user.role !== 'CUSTOMER')
         throw new UnauthorizedException()
       if (user.emailVerifiedAt) return
-      const prior = await tx.emailVerificationChallenge.findUnique({ where: { userId } })
+      const prior = await tx.emailVerificationChallenge.findUnique({
+        where: { userId },
+      })
       // Silent cooldown: do not reveal previous token or churn the encrypted event.
       if (prior && now.getTime() - prior.requestedAt.getTime() < 60_000) return
       const token = randomBytes(48).toString('base64url')
@@ -306,39 +321,211 @@ export class AuthService {
         },
       })
       await tx.auditEvent.create({
-        data: { actorId: userId, action: 'customer.email_verification_requested', targetType: 'user', targetId: userId },
+        data: {
+          actorId: userId,
+          action: 'customer.email_verification_requested',
+          targetType: 'user',
+          targetId: userId,
+        },
       })
     })
     return { accepted: true }
   }
 
   /** One-time consume + mark verified under the same lock used by issuance. */
-  async confirmEmailVerification(dto: EmailVerificationConfirmDto): Promise<{ accepted: boolean }> {
-    const challenge = await this.database.client.emailVerificationChallenge.findUnique({
-      where: { tokenHash: hashToken(dto.token) },
-      select: { userId: true },
-    })
+  async confirmEmailVerification(
+    dto: EmailVerificationConfirmDto,
+  ): Promise<{ accepted: boolean }> {
+    const challenge =
+      await this.database.client.emailVerificationChallenge.findUnique({
+        where: { tokenHash: hashToken(dto.token) },
+        select: { userId: true },
+      })
     if (!challenge)
       throw new BadRequestException('Invalid or expired verification token')
     await this.database.client.$transaction(async (tx) => {
       await tx.$queryRaw`SELECT id FROM users WHERE id = ${challenge.userId}::uuid FOR UPDATE`
-      const current = await tx.emailVerificationChallenge.findUnique({ where: { userId: challenge.userId } })
+      const current = await tx.emailVerificationChallenge.findUnique({
+        where: { userId: challenge.userId },
+      })
       const user = await tx.user.findUnique({ where: { id: challenge.userId } })
       const now = new Date()
-      if (!current || current.tokenHash !== hashToken(dto.token) || current.consumedAt || current.expiresAt <= now ||
-          !user || user.role !== 'CUSTOMER' || user.status !== 'ACTIVE' || user.emailVerifiedAt)
+      if (
+        !current ||
+        current.tokenHash !== hashToken(dto.token) ||
+        current.consumedAt ||
+        current.expiresAt <= now ||
+        !user ||
+        user.role !== 'CUSTOMER' ||
+        user.status !== 'ACTIVE' ||
+        user.emailVerifiedAt
+      )
         throw new BadRequestException('Invalid or expired verification token')
       await tx.emailVerificationChallenge.update({
-        where: { userId: challenge.userId }, data: { consumedAt: now },
+        where: { userId: challenge.userId },
+        data: { consumedAt: now },
       })
       await tx.user.update({
-        where: { id: challenge.userId }, data: { emailVerifiedAt: now },
+        where: { id: challenge.userId },
+        data: { emailVerifiedAt: now },
       })
       await tx.auditEvent.create({
-        data: { actorId: challenge.userId, action: 'customer.email_verified', targetType: 'user', targetId: challenge.userId },
+        data: {
+          actorId: challenge.userId,
+          action: 'customer.email_verified',
+          targetType: 'user',
+          targetId: challenge.userId,
+        },
       })
     })
     return { accepted: true }
+  }
+
+  /** Public recovery request. Response is identical for absent, disabled and staff
+   * users; per-customer lock + 60s cooldown + five tokens/hour bound abuse.
+   * No token enters logs or HTTP. G7 sender MUST revalidate token hash, expiry
+   * and recipient identity before using the encrypted outbox payload. */
+  async requestPasswordReset(
+    dto: PasswordResetRequestDto,
+  ): Promise<{ accepted: boolean }> {
+    const key = this.config.get('AUTH_ACTION_TOKEN_ENCRYPTION_KEY', {
+      infer: true,
+    })
+    if (!key || !/^[a-fA-F0-9]{64}$/.test(key))
+      throw new ServiceUnavailableException(
+        'Password recovery delivery is not configured',
+      )
+    const accepted = { accepted: true }
+    const user = await this.database.client.user.findUnique({
+      where: { email: normalize(dto.email) },
+      select: { id: true, role: true, status: true },
+    })
+    if (!user || user.role !== 'CUSTOMER' || user.status !== 'ACTIVE')
+      return accepted
+    await this.database.client.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT id FROM users WHERE id = ${user.id}::uuid FOR UPDATE`
+      const currentUser = await tx.user.findUnique({
+        where: { id: user.id },
+        select: { role: true, status: true },
+      })
+      if (currentUser?.role !== 'CUSTOMER' || currentUser.status !== 'ACTIVE')
+        return
+      const now = new Date()
+      const previous = await tx.passwordResetChallenge.findUnique({
+        where: { userId: user.id },
+      })
+      if (previous && now.getTime() - previous.requestedAt.getTime() < 60_000)
+        return
+      const withinWindow =
+        previous && now.getTime() - previous.windowStartAt.getTime() < 3_600_000
+      if (withinWindow && previous.windowCount >= 5) return
+      const token = randomBytes(48).toString('base64url')
+      const tokenHash = hashToken(token)
+      const expiresAt = new Date(now.getTime() + 30 * 60_000)
+      await tx.passwordResetChallenge.upsert({
+        where: { userId: user.id },
+        create: {
+          userId: user.id,
+          tokenHash,
+          expiresAt,
+          requestedAt: now,
+          windowStartAt: now,
+          windowCount: 1,
+        },
+        update: {
+          tokenHash,
+          expiresAt,
+          requestedAt: now,
+          consumedAt: null,
+          windowStartAt: withinWindow ? previous!.windowStartAt : now,
+          windowCount: withinWindow ? previous!.windowCount + 1 : 1,
+        },
+      })
+      const eventId = randomUUID()
+      await tx.outboxEvent.create({
+        data: {
+          id: eventId,
+          eventType: 'auth.password_reset.requested',
+          payload: {
+            userId: user.id,
+            eventId,
+            token: encryptEmailActionToken(key, token, `${user.id}:${eventId}`),
+            expiresAt: expiresAt.toISOString(),
+          },
+        },
+      })
+      await tx.auditEvent.create({
+        data: {
+          actorId: user.id,
+          action: 'customer.password_reset_requested',
+          targetType: 'user',
+          targetId: user.id,
+        },
+      })
+    })
+    return accepted
+  }
+
+  /** One-time token consumption, password swap, session fencing + audit are
+   * atomic. Original password is never disclosed; consumed token cannot replay. */
+  async confirmPasswordReset(dto: PasswordResetConfirmDto): Promise<{
+    changed: boolean
+    sessionsRevoked: boolean
+  }> {
+    const tokenHash = hashToken(dto.token)
+    const challenge =
+      await this.database.client.passwordResetChallenge.findUnique({
+        where: { tokenHash },
+        select: { userId: true, expiresAt: true, consumedAt: true },
+      })
+    if (!challenge || challenge.consumedAt || challenge.expiresAt <= new Date())
+      throw new BadRequestException('Invalid or expired reset token')
+    // Do expensive scrypt work only after a candidate token has been found.
+    const nextHash = await hashPassword(dto.newPassword)
+    return this.database.client.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT id FROM users WHERE id = ${challenge.userId}::uuid FOR UPDATE`
+      const current = await tx.passwordResetChallenge.findUnique({
+        where: { userId: challenge.userId },
+      })
+      const user = await tx.user.findUnique({
+        where: { id: challenge.userId },
+        select: { id: true, role: true, status: true, passwordHash: true },
+      })
+      if (
+        !current ||
+        current.tokenHash !== tokenHash ||
+        current.consumedAt ||
+        current.expiresAt <= new Date() ||
+        !user ||
+        user.role !== 'CUSTOMER' ||
+        user.status !== 'ACTIVE'
+      )
+        throw new BadRequestException('Invalid or expired reset token')
+      if (await verifyPassword(dto.newPassword, user.passwordHash))
+        throw new BadRequestException('New password must be different')
+      const now = new Date()
+      await tx.passwordResetChallenge.update({
+        where: { userId: user.id },
+        data: { consumedAt: now },
+      })
+      await tx.user.update({
+        where: { id: user.id },
+        data: { passwordHash: nextHash, sessionVersion: { increment: 1 } },
+      })
+      await tx.authSession.updateMany({
+        where: { userId: user.id, revokedAt: null },
+        data: { revokedAt: now },
+      })
+      await tx.auditEvent.create({
+        data: {
+          actorId: user.id,
+          action: 'customer.password_reset_completed',
+          targetType: 'user',
+          targetId: user.id,
+        },
+      })
+      return { changed: true, sessionsRevoked: true }
+    })
   }
 
   // For future permission-scoped RBAC; only role enforcement is live in this phase.

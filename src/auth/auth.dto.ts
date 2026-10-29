@@ -103,3 +103,42 @@ export class EmailVerificationConfirmDto {
 export class EmailVerificationResultDto {
   @ApiProperty({ example: true }) accepted!: boolean
 }
+
+/** Public password recovery request: identical accepted response for all accounts. */
+export class PasswordResetRequestDto {
+  @ApiProperty({ example: 'customer@example.com' })
+  @IsEmail()
+  @MaxLength(320)
+  email!: string
+}
+
+export class PasswordResetConfirmDto {
+  @ApiProperty({
+    writeOnly: true,
+    minLength: 40,
+    maxLength: 128,
+    description: 'One-time opaque reset token received through trusted email',
+  })
+  @IsString()
+  @Matches(/^[A-Za-z0-9_-]{40,128}$/)
+  token!: string
+
+  @ApiProperty({
+    format: 'password',
+    writeOnly: true,
+    minLength: 12,
+    maxLength: 128,
+  })
+  @IsString()
+  @MinLength(12)
+  @MaxLength(128)
+  newPassword!: string
+}
+
+export class PasswordResetRequestResultDto {
+  @ApiProperty({ example: true }) accepted!: boolean
+}
+export class PasswordResetCompleteDto {
+  @ApiProperty({ example: true }) changed!: boolean
+  @ApiProperty({ example: true }) sessionsRevoked!: boolean
+}
