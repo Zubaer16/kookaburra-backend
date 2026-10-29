@@ -105,6 +105,10 @@ export async function createHttpApp(): Promise<INestApplication> {
         'Customer-owned persistent cart and live server-side quote (no reservation)',
       )
       .addTag(
+        'Wishlist / Customer',
+        'Private product bookmarks and safe merge from a local preview wishlist',
+      )
+      .addTag(
         'Cart / Guest',
         'Anonymous cart capability and one-time secure merge (no JWT authentication)',
       )

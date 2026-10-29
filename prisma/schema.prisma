@@ -51,6 +51,7 @@ model User {
   mergedGuestCarts GuestCart[]
   checkoutReservations CheckoutReservation[]
   orders Order[]
+  wishlistItems WishlistItem[]
 
   @@map("users")
 }
@@ -124,6 +125,7 @@ model Product {
   media          ProductMedia[]
   cartItems     CartItem[]
   guestCartItems GuestCartItem[]
+  wishlistItems WishlistItem[]
   createdAt      DateTime       @default(now()) @map("created_at")
   updatedAt      DateTime       @updatedAt @map("updated_at")
 
@@ -147,6 +149,20 @@ model ProductVariant {
 
   @@index([productId])
   @@map("product_variants")
+}
+
+// 05A-1: Persistent customer-only product bookmarks. Never records money, stock,
+// order, price promises or anonymous capability tokens.
+model WishlistItem {
+  userId     String   @map("user_id") @db.Uuid
+  productId  String   @map("product_id") @db.Uuid
+  createdAt  DateTime @default(now()) @map("created_at")
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  product    Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@id([userId, productId])
+  @@index([userId, createdAt])
+  @@map("wishlist_items")
 }
 
 model ProductCategory {
