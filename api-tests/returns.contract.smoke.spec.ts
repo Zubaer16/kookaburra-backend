@@ -21,6 +21,34 @@ test('04D-2A Swagger contract: JWT-protected return inspection and no refund end
     expect(op.tags).toContain(tag)
     expect(op.security).toEqual([{ 'access-token': [] }])
   }
+  for (const [method, path, tag] of [
+    ['get', '/v1/orders/{id}/replacements', 'Replacements / Customer'],
+    ['get', '/v1/admin/orders/{id}/replacements', 'Replacements / Admin'],
+    [
+      'post',
+      '/v1/admin/orders/{id}/replacements/returns/{returnId}/authorize',
+      'Replacements / Admin',
+    ],
+    ...['ship', 'deliver', 'cancel'].map((action) => [
+      'post',
+      `/v1/admin/orders/{id}/replacements/{replacementId}/${action}`,
+      'Replacements / Admin',
+    ]),
+  ] as string[][]) {
+    const operation = doc.paths[path]?.[method]
+    expect(operation, `${method.toUpperCase()} ${path}`).toBeDefined()
+    expect(operation.tags).toContain(tag)
+    expect(operation.security).toEqual([{ 'access-token': [] }])
+  }
+  expect(
+    Object.keys(doc.components.schemas.ReplacementActionDto.properties),
+  ).toEqual(['requestId'])
+  expect(
+    Object.keys(doc.components.schemas.ShipReplacementDto.properties).sort(),
+  ).toEqual(['carrier', 'requestId', 'trackingNumber'])
+  expect(
+    doc.components.schemas.ReplacementResponseDto.properties,
+  ).toHaveProperty('status')
   const requestDto = doc.components.schemas.CreateOrderReturnDto.properties
   expect(Object.keys(requestDto).sort()).toEqual([
     'orderLineId',

@@ -125,6 +125,10 @@ export class CatalogTestFixture {
                   'order.return.reject',
                   'order.return.receive',
                   'order.return.restock',
+                  'order.replacement.authorized',
+                  'order.replacement.ship',
+                  'order.replacement.deliver',
+                  'order.replacement.cancel',
                 ],
               },
               payload: { path: ['orderId'], equals: order.id },
@@ -143,6 +147,15 @@ export class CatalogTestFixture {
           where: {
             order: { customerId: { in: fixtureUserIds } },
           },
+        })
+        // G1: replacement FK to return/order must be cleared first.
+        await this.db.orderReplacementEvent.deleteMany({
+          where: {
+            replacement: { order: { customerId: { in: fixtureUserIds } } },
+          },
+        })
+        await this.db.orderReplacement.deleteMany({
+          where: { order: { customerId: { in: fixtureUserIds } } },
         })
         await this.db.orderReturnEvent.deleteMany({
           where: {

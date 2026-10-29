@@ -11,6 +11,11 @@ import {
   ReturnsAdminController,
 } from './returns.controller'
 import { ReturnsService } from './returns.service'
+import { ReplacementsService } from './replacements.service'
+import {
+  ReplacementsAdminController,
+  ReplacementsCustomerController,
+} from './replacements.controller'
 
 @Module({
   imports: [AuthModule],
@@ -19,6 +24,8 @@ import { ReturnsService } from './returns.service'
     FulfillmentAdminController,
     ReturnsCustomerController,
     ReturnsAdminController,
+    ReplacementsAdminController,
+    ReplacementsCustomerController,
   ],
   providers: [
     OrdersService,
@@ -26,6 +33,7 @@ import { ReturnsService } from './returns.service'
     FulfillmentService,
     FulfillmentManageGuard,
     ReturnsService,
+    ReplacementsService,
   ],
 })
 export class OrdersModule {}

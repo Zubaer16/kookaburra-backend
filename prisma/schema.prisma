@@ -166,6 +166,7 @@ enum InventoryReason {
   DAMAGE
   CORRECTION
   SALE
+  REPLACEMENT
 }
 
 // Exactly one of productId/variantId is populated (also checked by SQL).
@@ -508,6 +509,7 @@ model Order {
   refundRequests RefundRequest[]
   shipment OrderShipment?
   returnRequests OrderReturn[]
+  replacements OrderReplacement[]
 
   @@unique([customerId, requestId], map: "orders_customer_request_key")
   @@index([status, paymentDeadlineAt])
@@ -728,6 +730,7 @@ model OrderReturn {
   createdAt    DateTime          @default(now()) @map("created_at")
   updatedAt    DateTime          @updatedAt @map("updated_at")
   events       OrderReturnEvent[]
+  replacement  OrderReplacement?
 
   @@unique([orderId, requestId], map: "order_returns_order_request_key")
   @@index([orderLineId, status])
@@ -749,4 +752,55 @@ model OrderReturnEvent {
   @@unique([returnId, requestId], map: "order_return_events_return_request_key")
   @@index([returnId, createdAt])
   @@map("order_return_events")
+}
+
+// 04D-2B / G1 increment: free, same-SKU replacement authorization/dispatch.
+// This is NOT a new paid Order, nor a refund, nor an automatic return restock.
+// Shipment records and payment/financial snapshots of the original Order are immutable.
+enum ReplacementStatus {
+  AUTHORIZED
+  SHIPPED
+  DELIVERED
+  CANCELLED
+}
+
+model OrderReplacement {
+  id             String            @id @default(uuid()) @db.Uuid
+  orderId        String            @map("order_id") @db.Uuid
+  order          Order             @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  returnId       String            @unique @map("return_id") @db.Uuid
+  orderReturn    OrderReturn       @relation(fields: [returnId], references: [id], onDelete: Restrict)
+  requestId      String            @map("request_id") @db.Uuid
+  requestHash    String            @map("request_hash") @db.VarChar(64)
+  productId      String            @map("product_id") @db.Uuid
+  variantId      String?           @map("variant_id") @db.Uuid
+  skuSnapshot    String?           @map("sku_snapshot") @db.VarChar(120)
+  quantity       Int
+  status         ReplacementStatus @default(AUTHORIZED)
+  carrier        String?           @db.VarChar(80)
+  trackingNumber String?           @map("tracking_number") @db.VarChar(120)
+  shippedAt      DateTime?         @map("shipped_at")
+  deliveredAt    DateTime?         @map("delivered_at")
+  createdAt      DateTime          @default(now()) @map("created_at")
+  updatedAt      DateTime          @updatedAt @map("updated_at")
+  events         OrderReplacementEvent[]
+
+  @@unique([orderId, requestId], map: "order_replacements_order_request_key")
+  @@index([orderId, createdAt])
+  @@map("order_replacements")
+}
+
+model OrderReplacementEvent {
+  id            String           @id @default(uuid()) @db.Uuid
+  replacementId String           @map("replacement_id") @db.Uuid
+  replacement   OrderReplacement @relation(fields: [replacementId], references: [id], onDelete: Cascade)
+  requestId     String           @map("request_id") @db.Uuid
+  requestHash   String           @map("request_hash") @db.VarChar(64)
+  action        String           @db.VarChar(20)
+  actorId       String           @map("actor_id") @db.Uuid
+  createdAt     DateTime         @default(now()) @map("created_at")
+
+  @@unique([replacementId, requestId], map: "order_replacement_events_request_key")
+  @@index([replacementId, createdAt])
+  @@map("order_replacement_events")
 }

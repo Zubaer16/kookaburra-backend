@@ -67,6 +67,67 @@ test('04D-2A return access boundary and mass-assignment rejection', async ({
         })
       ).status(),
     ).toBe(404)
+    const replacementBase = `/v1/admin/orders/${orderId}/replacements`
+    const authUrl = `${replacementBase}/returns/${returnId}/authorize`
+    expect(
+      (
+        await request.post(authUrl, { data: { requestId: randomUUID() } })
+      ).status(),
+    ).toBe(401)
+    expect(
+      (
+        await request.post(authUrl, {
+          headers: bearer(customer.token),
+          data: { requestId: randomUUID() },
+        })
+      ).status(),
+    ).toBe(403)
+    expect(
+      (
+        await request.post(authUrl, {
+          headers: bearer(owner.token),
+          data: { requestId: randomUUID(), quantity: 100 },
+        })
+      ).status(),
+    ).toBe(400)
+    expect(
+      (
+        await request.post(authUrl, {
+          headers: bearer(owner.token),
+          data: { requestId: randomUUID() },
+        })
+      ).status(),
+    ).toBe(404)
+    expect(
+      (
+        await request.post(`${replacementBase}/${randomUUID()}/ship`, {
+          headers: bearer(owner.token),
+          data: {
+            requestId: randomUUID(),
+            carrier: 'DHL',
+            trackingNumber: 'TRACK123',
+            amountMinor: 0,
+          },
+        })
+      ).status(),
+    ).toBe(400)
+    expect(
+      (await request.get(`/v1/orders/${orderId}/replacements`)).status(),
+    ).toBe(401)
+    expect(
+      (
+        await request.get(`/v1/orders/${orderId}/replacements`, {
+          headers: bearer(owner.token),
+        })
+      ).status(),
+    ).toBe(403)
+    expect(
+      (
+        await request.get(`/v1/orders/${orderId}/replacements`, {
+          headers: bearer(customer.token),
+        })
+      ).status(),
+    ).toBe(404)
   } finally {
     await f.close()
   }
