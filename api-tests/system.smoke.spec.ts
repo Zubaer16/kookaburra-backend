@@ -32,6 +32,7 @@ test.describe('System & OpenAPI', () => {
       'Media / Disk',
       'Cart / Customer',
       'Wishlist / Customer',
+      'Account / Customer',
       'Cart / Guest',
       'Checkout / Customer',
       'Orders / Customer',

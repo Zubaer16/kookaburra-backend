@@ -29,6 +29,7 @@ const allowed = [
   'visual-tracking',
   'visual-admin-cancel',
   'visual-wishlist',
+  'visual-account',
   'visual-report',
   'security',
 ]
@@ -201,7 +202,8 @@ try {
     mode === 'visual-replacements' ||
     mode === 'visual-tracking' ||
     mode === 'visual-admin-cancel' ||
-    mode === 'visual-wishlist'
+    mode === 'visual-wishlist' ||
+    mode === 'visual-account'
   ) {
     safe.MEDIA_PROVIDER = 'disk'
     safe.MEDIA_DISK_ROOT = path.join(
@@ -227,7 +229,8 @@ try {
       mode === 'visual-replacements' ||
       mode === 'visual-tracking' ||
       mode === 'visual-admin-cancel' ||
-      mode === 'visual-wishlist'
+      mode === 'visual-wishlist' ||
+      mode === 'visual-account'
       ? [
           'test',
           '--config=playwright.swagger.config.mjs',
@@ -264,6 +267,9 @@ try {
             : []),
           ...(mode === 'visual-wishlist'
             ? ['--grep', '05A-1 Swagger Chromium: JWT wishlist']
+            : []),
+          ...(mode === 'visual-account'
+            ? ['--grep', '05A-2 Swagger Chromium: customer account']
             : []),
         ]
       : mode === 'security'

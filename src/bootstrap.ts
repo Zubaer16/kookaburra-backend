@@ -109,6 +109,10 @@ export async function createHttpApp(): Promise<INestApplication> {
         'Private product bookmarks and safe merge from a local preview wishlist',
       )
       .addTag(
+        'Account / Customer',
+        'Authenticated customer display-name profile and private saved address book',
+      )
+      .addTag(
         'Cart / Guest',
         'Anonymous cart capability and one-time secure merge (no JWT authentication)',
       )

@@ -52,6 +52,7 @@ model User {
   checkoutReservations CheckoutReservation[]
   orders Order[]
   wishlistItems WishlistItem[]
+  customerAddresses CustomerAddress[]
 
   @@map("users")
 }
@@ -163,6 +164,29 @@ model WishlistItem {
   @@id([userId, productId])
   @@index([userId, createdAt])
   @@map("wishlist_items")
+}
+
+// 05A-2: private, customer-owned address book. Order shipping snapshots are separate.
+// Only a customer-profile API uses this table; it never updates existing orders.
+model CustomerAddress {
+  id            String   @id @default(uuid()) @db.Uuid
+  userId        String   @map("user_id") @db.Uuid
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  label         String   @default("Home") @db.VarChar(40)
+  recipientName String   @map("recipient_name") @db.VarChar(120)
+  phone         String   @db.VarChar(16)
+  addressLine1  String   @map("address_line_1") @db.VarChar(200)
+  addressLine2  String   @default("") @map("address_line_2") @db.VarChar(200)
+  city          String   @db.VarChar(100)
+  region        String   @default("") @db.VarChar(100)
+  postalCode    String   @default("") @map("postal_code") @db.VarChar(20)
+  countryCode   String   @map("country_code") @db.VarChar(2)
+  isDefault     Boolean  @default(false) @map("is_default")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  @@index([userId, createdAt])
+  @@map("customer_addresses")
 }
 
 model ProductCategory {
