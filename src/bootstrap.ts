@@ -161,6 +161,10 @@ export async function createHttpApp(): Promise<INestApplication> {
         'OWNER-only country/currency shipping and estimate tax policies',
       )
       .addTag(
+        'Customers / Admin',
+        'Permission-gated customer directory, search and non-financial order overview',
+      )
+      .addTag(
         'Workspace / Admin',
         'JWT-only staff workspace roles and persistent permission grants',
       )

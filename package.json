@@ -52,7 +52,8 @@
     "test:api:visual:tracking": "npm run build && node scripts/run-api-tests.cjs visual-tracking",
     "test:api:visual:admin-cancel": "npm run build && node scripts/run-api-tests.cjs visual-admin-cancel",
     "test:api:visual:wishlist": "npm run build && node scripts/run-api-tests.cjs visual-wishlist",
-    "test:api:visual:account": "npm run build && node scripts/run-api-tests.cjs visual-account"
+    "test:api:visual:account": "npm run build && node scripts/run-api-tests.cjs visual-account",
+    "test:api:visual:customers": "npm run build && node scripts/run-api-tests.cjs visual-customers"
   },
   "engines": {
     "node": ">=24.11.0 <25"
