@@ -40,6 +40,23 @@ test('04D-2A Swagger Chromium: returns access and strict DTO validation', async 
       undefined,
       { id },
     )
+    // Customer withdrawal is protected and cannot trust client-supplied state.
+    await swaggerExecute(
+      page,
+      'POST',
+      '/v1/orders/{id}/returns/{returnId}/cancel',
+      400,
+      { requestId: randomUUID(), status: 'RESTOCKED' },
+      { id, returnId: randomUUID() },
+    )
+    await swaggerExecute(
+      page,
+      'POST',
+      '/v1/orders/{id}/returns/{returnId}/cancel',
+      404,
+      { requestId: randomUUID() },
+      { id, returnId: randomUUID() },
+    )
   } finally {
     await f.close()
   }

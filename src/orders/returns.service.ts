@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common'
 import { DatabaseService } from '../database/database.service'
 import { Prisma } from '../generated/prisma/client'
+import { canWithdrawPendingReturn } from './returns.policy'
 import {
   CreateOrderReturnDto,
   ReceiveReturnDto,
@@ -99,7 +100,10 @@ export class ReturnsService {
       })
       if (!line) throw new NotFoundException('Order line not found')
       const previouslyRequested = await tx.orderReturn.aggregate({
-        where: { orderLineId: line.id, status: { not: 'REJECTED' } },
+        where: {
+          orderLineId: line.id,
+          status: { notIn: ['REJECTED', 'CANCELLED'] },
+        },
         _sum: { quantity: true },
       })
       if (
@@ -167,12 +171,22 @@ export class ReturnsService {
     returnId: string,
     actorId: string,
     input: ReturnActionDto,
-    action: 'APPROVE' | 'REJECT' | 'RECEIVE' | 'RESTOCK',
+    action: 'APPROVE' | 'REJECT' | 'RECEIVE' | 'RESTOCK' | 'CANCEL',
     condition?: 'RESTOCKABLE' | 'DAMAGED',
+    customerId?: string,
   ) {
     const hash = sha({ action, condition: condition ?? null })
     return this.database.client.$transaction(async (tx) => {
       await this.lockOrder(tx, orderId)
+      // Withdrawal is a customer-only action. Check owner INSIDE the same
+      // order lock before reading return state; strangers observe only 404.
+      if (customerId) {
+        const owned = await tx.order.findFirst({
+          where: { id: orderId, customerId },
+          select: { id: true },
+        })
+        if (!owned) throw new NotFoundException('Order not found')
+      }
       const row = await tx.orderReturn.findFirst({
         where: { id: returnId, orderId },
         include: { orderLine: true },
@@ -195,17 +209,23 @@ export class ReturnsService {
           ? 'APPROVED'
           : action === 'REJECT'
             ? 'REJECTED'
-            : action === 'RECEIVE'
-              ? condition === 'RESTOCKABLE'
-                ? 'RECEIVED_RESTOCKABLE'
-                : 'RECEIVED_DAMAGED'
-              : 'RESTOCKED'
+            : action === 'CANCEL'
+              ? 'CANCELLED'
+              : action === 'RECEIVE'
+                ? condition === 'RESTOCKABLE'
+                  ? 'RECEIVED_RESTOCKABLE'
+                  : 'RECEIVED_DAMAGED'
+                : 'RESTOCKED'
       if (
         (action === 'APPROVE' || action === 'REJECT') &&
         row.status !== 'REQUESTED'
       )
         throw new ConflictException(
           'Only requested returns can be approved or rejected',
+        )
+      if (action === 'CANCEL' && !canWithdrawPendingReturn(row.status))
+        throw new ConflictException(
+          'Only pending return requests can be withdrawn',
         )
       if (action === 'RECEIVE' && row.status !== 'APPROVED')
         throw new ConflictException(
@@ -306,6 +326,23 @@ export class ReturnsService {
       })
       return present(updated)
     }, transactionOptions)
+  }
+
+  cancelPending(
+    customerId: string,
+    orderId: string,
+    returnId: string,
+    dto: ReturnActionDto,
+  ) {
+    return this.action(
+      orderId,
+      returnId,
+      customerId,
+      dto,
+      'CANCEL',
+      undefined,
+      customerId,
+    )
   }
 
   approve(

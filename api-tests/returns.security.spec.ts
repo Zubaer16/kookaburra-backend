@@ -37,6 +37,51 @@ test('04D-2A return access boundary and mass-assignment rejection', async ({
         await request.post(createUrl, { headers: bearer(customer.token), data })
       ).status(),
     ).toBe(404)
+    const cancelUrl = `${createUrl}/${returnId}/cancel`
+    const cancelBody = { requestId: randomUUID() }
+    expect((await request.post(cancelUrl, { data: cancelBody })).status()).toBe(
+      401,
+    )
+    expect(
+      (
+        await request.post(cancelUrl, {
+          headers: bearer(owner.token),
+          data: cancelBody,
+        })
+      ).status(),
+    ).toBe(403)
+    expect(
+      (
+        await request.post(cancelUrl, {
+          headers: bearer(customer.token),
+          data: { ...cancelBody, status: 'RESTOCKED' },
+        })
+      ).status(),
+    ).toBe(400)
+    expect(
+      (
+        await request.post(cancelUrl, {
+          headers: bearer(customer.token),
+          data: cancelBody,
+        })
+      ).status(),
+    ).toBe(404)
+    expect(
+      (
+        await request.post(`${createUrl}/invalid/cancel`, {
+          headers: bearer(customer.token),
+          data: cancelBody,
+        })
+      ).status(),
+    ).toBe(400)
+    expect(
+      (
+        await request.post(cancelUrl, {
+          headers: bearer(customer.token),
+          data: { requestId: 'invalid' },
+        })
+      ).status(),
+    ).toBe(400)
     const admin = `/v1/admin/orders/${orderId}/returns/${returnId}/restock`
     expect(
       (

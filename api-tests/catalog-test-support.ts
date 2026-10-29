@@ -123,6 +123,7 @@ export class CatalogTestFixture {
                   'order.return.requested',
                   'order.return.approve',
                   'order.return.reject',
+                  'order.return.cancel',
                   'order.return.receive',
                   'order.return.restock',
                   'order.replacement.authorized',

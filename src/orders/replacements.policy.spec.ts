@@ -8,7 +8,7 @@ describe('04D-2B-1 non-financial replacement policy', () => {
     'accepts physical inspection status %s',
     (status) => expect(isInspectedReturn(status)).toBe(true),
   )
-  it.each(['REQUESTED', 'APPROVED', 'REJECTED', 'BOGUS'])(
+  it.each(['REQUESTED', 'APPROVED', 'REJECTED', 'CANCELLED', 'BOGUS'])(
     'never bypasses inspection with %s',
     (status) => expect(isInspectedReturn(status)).toBe(false),
   )

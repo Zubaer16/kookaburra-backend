@@ -172,6 +172,114 @@ test('04D-2A real DB: return quantity ceiling, inspection, exactly-once restock,
     })
     expect(retry.status()).toBe(200)
     expect((await retry.json()).id).toBe(returnId)
+    // G1-4: only pending returns can be withdrawn; no physical or money movement.
+    const pendingData = {
+      requestId: randomUUID(),
+      orderLineId: lineId,
+      quantity: 1,
+      reason: 'OTHER',
+    }
+    const pending = await request.post(url, {
+      headers: bearer(customer.token),
+      data: pendingData,
+    })
+    expect(pending.status()).toBe(200)
+    const pendingId = (await pending.json()).id as string
+    const withdrawUrl = `${url}/${pendingId}/cancel`
+    const withdrawBody = { requestId: randomUUID() }
+    const [withdraw1, withdraw2] = await Promise.all([
+      request.post(withdrawUrl, {
+        headers: bearer(customer.token),
+        data: withdrawBody,
+      }),
+      request.post(withdrawUrl, {
+        headers: bearer(customer.token),
+        data: withdrawBody,
+      }),
+    ])
+    expect([withdraw1.status(), withdraw2.status()]).toEqual([200, 200])
+    expect((await withdraw1.json()).status).toBe('CANCELLED')
+    expect(
+      (await f.db.orderReturn.findUniqueOrThrow({ where: { id: pendingId } }))
+        .status,
+    ).toBe('CANCELLED')
+    expect(
+      await f.db.orderReturnEvent.count({
+        where: { returnId: pendingId, action: 'CANCEL' },
+      }),
+    ).toBe(1)
+    expect(
+      (
+        await request.post(url, {
+          headers: bearer(customer.token),
+          data: pendingData,
+        })
+      ).status(),
+    ).toBe(200)
+    expect(
+      (
+        await request.post(withdrawUrl, {
+          headers: bearer(customer.token),
+          data: { requestId: randomUUID() },
+        })
+      ).status(),
+    ).toBe(409)
+    expect(
+      (
+        await request.post(withdrawUrl, {
+          headers: bearer(stranger.token),
+          data: { requestId: randomUUID() },
+        })
+      ).status(),
+    ).toBe(404)
+    expect(
+      (
+        await request.post(
+          `/v1/admin/orders/${orderId}/returns/${pendingId}/approve`,
+          {
+            headers: bearer(owner.token),
+            data: { requestId: randomUUID() },
+          },
+        )
+      ).status(),
+    ).toBe(409)
+    expect(
+      (
+        await request.post(
+          `/v1/admin/orders/${orderId}/replacements/returns/${pendingId}/authorize`,
+          {
+            headers: bearer(owner.token),
+            data: { requestId: randomUUID() },
+          },
+        )
+      ).status(),
+    ).toBe(409)
+    // A new request can use the withdrawn quantity. The cancelled record remains.
+    const reRequested = await request.post(url, {
+      headers: bearer(customer.token),
+      data: {
+        requestId: randomUUID(),
+        orderLineId: lineId,
+        quantity: 1,
+        reason: 'OTHER',
+      },
+    })
+    expect(reRequested.status()).toBe(200)
+    const reRequestedId = (await reRequested.json()).id as string
+    expect(
+      (
+        await request.post(`${url}/${reRequestedId}/cancel`, {
+          headers: bearer(customer.token),
+          data: { requestId: randomUUID() },
+        })
+      ).status(),
+    ).toBe(200)
+    expect(
+      await f.db.inventoryMovement.count({
+        where: { balanceId: balance.id, reason: 'RETURN' },
+      }),
+    ).toBe(0)
+    expect(await f.db.refundRequest.count({ where: { orderId } })).toBe(0)
     expect(
       (
         await request.post(url, {
@@ -208,13 +316,25 @@ test('04D-2A real DB: return quantity ceiling, inspection, exactly-once restock,
         data,
       })
     // Replacement authorization must not bypass pending-return inspection.
-    expect((await request.post(
-      `/v1/admin/orders/${orderId}/replacements/returns/${returnId}/authorize`,
-      { headers: bearer(owner.token), data: { requestId: randomUUID() } },
-    )).status()).toBe(409)
+    expect(
+      (
+        await request.post(
+          `/v1/admin/orders/${orderId}/replacements/returns/${returnId}/authorize`,
+          { headers: bearer(owner.token), data: { requestId: randomUUID() } },
+        )
+      ).status(),
+    ).toBe(409)
     const approve = { requestId: randomUUID() }
     expect((await action('approve', returnId, approve)).status()).toBe(200)
     expect((await action('approve', returnId, approve)).status()).toBe(200)
+    expect(
+      (
+        await request.post(`${url}/${returnId}/cancel`, {
+          headers: bearer(customer.token),
+          data: { requestId: randomUUID() },
+        })
+      ).status(),
+    ).toBe(409)
     const receive = { requestId: randomUUID(), condition: 'RESTOCKABLE' }
     expect((await action('receive', returnId, receive)).status()).toBe(200)
     expect(
@@ -259,23 +379,49 @@ test('04D-2A real DB: return quantity ceiling, inspection, exactly-once restock,
     const firstReplacementId = (await firstAuthorization.json()).id as string
     const firstReplacementUrl = `/v1/admin/orders/${orderId}/replacements/${firstReplacementId}`
     const cancelReplacement = { requestId: randomUUID() }
-    expect((await request.post(`${firstReplacementUrl}/cancel`, {
-      headers: bearer(owner.token), data: cancelReplacement,
-    })).status()).toBe(200)
-    expect((await request.post(`${firstReplacementUrl}/cancel`, {
-      headers: bearer(owner.token), data: cancelReplacement,
-    })).status()).toBe(200)
-    expect((await request.post(`${firstReplacementUrl}/ship`, {
-      headers: bearer(owner.token),
-      data: { requestId: randomUUID(), carrier: 'DHL', trackingNumber: 'REPL123456' },
-    })).status()).toBe(409)
-    expect((await request.post(
-      `/v1/admin/orders/${orderId}/replacements/returns/${returnId}/authorize`,
-      { headers: bearer(owner.token), data: { requestId: randomUUID() } },
-    )).status()).toBe(409)
-    expect((await f.db.inventoryBalance.findUniqueOrThrow({
-      where: { id: balance.id },
-    })).onHand).toBe(4)
+    expect(
+      (
+        await request.post(`${firstReplacementUrl}/cancel`, {
+          headers: bearer(owner.token),
+          data: cancelReplacement,
+        })
+      ).status(),
+    ).toBe(200)
+    expect(
+      (
+        await request.post(`${firstReplacementUrl}/cancel`, {
+          headers: bearer(owner.token),
+          data: cancelReplacement,
+        })
+      ).status(),
+    ).toBe(200)
+    expect(
+      (
+        await request.post(`${firstReplacementUrl}/ship`, {
+          headers: bearer(owner.token),
+          data: {
+            requestId: randomUUID(),
+            carrier: 'DHL',
+            trackingNumber: 'REPL123456',
+          },
+        })
+      ).status(),
+    ).toBe(409)
+    expect(
+      (
+        await request.post(
+          `/v1/admin/orders/${orderId}/replacements/returns/${returnId}/authorize`,
+          { headers: bearer(owner.token), data: { requestId: randomUUID() } },
+        )
+      ).status(),
+    ).toBe(409)
+    expect(
+      (
+        await f.db.inventoryBalance.findUniqueOrThrow({
+          where: { id: balance.id },
+        })
+      ).onHand,
+    ).toBe(4)
     // A damaged second return cannot automatically increase stock.
     const create2 = await request.post(url, {
       headers: bearer(customer.token),
@@ -325,71 +471,145 @@ test('04D-2A real DB: return quantity ceiling, inspection, exactly-once restock,
     const replacementId = (await authorized.json()).id as string
     expect((await authorized.json()).status).toBe('AUTHORIZED')
     expect(
-      (await request.post(`${replacementBase}/returns/${damagedId}/authorize`, {
-        headers: bearer(owner.token), data: authorize,
-      })).status(),
+      (
+        await request.post(
+          `${replacementBase}/returns/${damagedId}/authorize`,
+          {
+            headers: bearer(owner.token),
+            data: authorize,
+          },
+        )
+      ).status(),
     ).toBe(200)
     expect(
-      (await request.post(`${replacementBase}/returns/${returnId}/authorize`, {
-        headers: bearer(owner.token), data: authorize,
-      })).status(),
+      (
+        await request.post(`${replacementBase}/returns/${returnId}/authorize`, {
+          headers: bearer(owner.token),
+          data: authorize,
+        })
+      ).status(),
     ).toBe(409)
     expect(
-      (await request.post(`${replacementBase}/returns/${damagedId}/authorize`, {
-        headers: bearer(owner.token), data: { requestId: randomUUID() },
-      })).status(),
+      (
+        await request.post(
+          `${replacementBase}/returns/${damagedId}/authorize`,
+          {
+            headers: bearer(owner.token),
+            data: { requestId: randomUUID() },
+          },
+        )
+      ).status(),
     ).toBe(409)
     expect(
-      (await f.db.inventoryBalance.findUniqueOrThrow({ where: { id: balance.id } })).onHand,
+      (
+        await f.db.inventoryBalance.findUniqueOrThrow({
+          where: { id: balance.id },
+        })
+      ).onHand,
     ).toBe(4)
     const replacementUrl = `${replacementBase}/${replacementId}`
-    const ship = { requestId: randomUUID(), carrier: 'DHL', trackingNumber: 'REPLACEMENT123' }
+    const ship = {
+      requestId: randomUUID(),
+      carrier: 'DHL',
+      trackingNumber: 'REPLACEMENT123',
+    }
     // Existing reservations win over nonreserved replacements.
     await f.db.inventoryBalance.update({
-      where: { id: balance.id }, data: { reservedQuantity: 4 },
+      where: { id: balance.id },
+      data: { reservedQuantity: 4 },
     })
-    expect((await request.post(`${replacementUrl}/ship`, {
-      headers: bearer(owner.token), data: ship,
-    })).status()).toBe(409)
-    expect((await f.db.inventoryMovement.count({
-      where: { balanceId: balance.id, reason: 'REPLACEMENT' },
-    }))).toBe(0)
+    expect(
+      (
+        await request.post(`${replacementUrl}/ship`, {
+          headers: bearer(owner.token),
+          data: ship,
+        })
+      ).status(),
+    ).toBe(409)
+    expect(
+      await f.db.inventoryMovement.count({
+        where: { balanceId: balance.id, reason: 'REPLACEMENT' },
+      }),
+    ).toBe(0)
     await f.db.inventoryBalance.update({
-      where: { id: balance.id }, data: { reservedQuantity: 0 },
+      where: { id: balance.id },
+      data: { reservedQuantity: 0 },
     })
     const [shippedA, shippedB] = await Promise.all([
-      request.post(`${replacementUrl}/ship`, { headers: bearer(owner.token), data: ship }),
-      request.post(`${replacementUrl}/ship`, { headers: bearer(owner.token), data: ship }),
+      request.post(`${replacementUrl}/ship`, {
+        headers: bearer(owner.token),
+        data: ship,
+      }),
+      request.post(`${replacementUrl}/ship`, {
+        headers: bearer(owner.token),
+        data: ship,
+      }),
     ])
     expect([shippedA.status(), shippedB.status()]).toEqual([200, 200])
     expect((await shippedA.json()).status).toBe('SHIPPED')
-    expect((await f.db.inventoryBalance.findUniqueOrThrow({
-      where: { id: balance.id },
-    })).onHand).toBe(3)
-    expect((await f.db.product.findUniqueOrThrow({ where: { id: productId } })).stockOnHand).toBe(3)
-    expect((await f.db.inventoryMovement.count({
-      where: { balanceId: balance.id, reason: 'REPLACEMENT' },
-    }))).toBe(1)
-    expect((await request.post(`${replacementUrl}/cancel`, {
-      headers: bearer(owner.token), data: { requestId: randomUUID() },
-    })).status()).toBe(409)
-    expect((await request.post(`${replacementUrl}/deliver`, {
-      headers: bearer(owner.token), data: { requestId: randomUUID() },
-    })).status()).toBe(200)
-    expect((await request.post(`${replacementUrl}/deliver`, {
-      headers: bearer(owner.token), data: { requestId: randomUUID() },
-    })).status()).toBe(409)
-    expect((await request.get(`/v1/orders/${orderId}/replacements`, {
-      headers: bearer(customer.token),
-    })).status()).toBe(200)
-    expect((await request.get(`/v1/orders/${orderId}/replacements`, {
-      headers: bearer(stranger.token),
-    })).status()).toBe(404)
-    expect((await f.db.refundRequest.count({ where: { orderId } }))).toBe(0)
-    expect((await request.post(`/v1/admin/payments/orders/${orderId}/refunds`, {
-      headers: bearer(owner.token),
-      data: { requestId: randomUUID(), amountMinor: 100, reason: 'OTHER' },
-    })).status()).toBe(409)
+    expect(
+      (
+        await f.db.inventoryBalance.findUniqueOrThrow({
+          where: { id: balance.id },
+        })
+      ).onHand,
+    ).toBe(3)
+    expect(
+      (await f.db.product.findUniqueOrThrow({ where: { id: productId } }))
+        .stockOnHand,
+    ).toBe(3)
+    expect(
+      await f.db.inventoryMovement.count({
+        where: { balanceId: balance.id, reason: 'REPLACEMENT' },
+      }),
+    ).toBe(1)
+    expect(
+      (
+        await request.post(`${replacementUrl}/cancel`, {
+          headers: bearer(owner.token),
+          data: { requestId: randomUUID() },
+        })
+      ).status(),
+    ).toBe(409)
+    expect(
+      (
+        await request.post(`${replacementUrl}/deliver`, {
+          headers: bearer(owner.token),
+          data: { requestId: randomUUID() },
+        })
+      ).status(),
+    ).toBe(200)
+    expect(
+      (
+        await request.post(`${replacementUrl}/deliver`, {
+          headers: bearer(owner.token),
+          data: { requestId: randomUUID() },
+        })
+      ).status(),
+    ).toBe(409)
+    expect(
+      (
+        await request.get(`/v1/orders/${orderId}/replacements`, {
+          headers: bearer(customer.token),
+        })
+      ).status(),
+    ).toBe(200)
+    expect(
+      (
+        await request.get(`/v1/orders/${orderId}/replacements`, {
+          headers: bearer(stranger.token),
+        })
+      ).status(),
+    ).toBe(404)
+    expect(await f.db.refundRequest.count({ where: { orderId } })).toBe(0)
+    expect(
+      (
+        await request.post(`/v1/admin/payments/orders/${orderId}/refunds`, {
+          headers: bearer(owner.token),
+          data: { requestId: randomUUID(), amountMinor: 100, reason: 'OTHER' },
+        })
+      ).status(),
+    ).toBe(409)
     expect(
       (await request.get(url, { headers: bearer(customer.token) })).status(),
     ).toBe(200)

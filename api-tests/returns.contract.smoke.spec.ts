@@ -9,6 +9,7 @@ test('04D-2A Swagger contract: JWT-protected return inspection and no refund end
   for (const [method, path, tag] of [
     ['post', '/v1/orders/{id}/returns', 'Returns / Customer'],
     ['get', '/v1/orders/{id}/returns', 'Returns / Customer'],
+    ['post', '/v1/orders/{id}/returns/{returnId}/cancel', 'Returns / Customer'],
     ['get', '/v1/admin/orders/{id}/returns', 'Returns / Admin'],
     ...['approve', 'reject', 'receive', 'restock'].map((a) => [
       'post',
@@ -49,6 +50,19 @@ test('04D-2A Swagger contract: JWT-protected return inspection and no refund end
   expect(
     doc.components.schemas.ReplacementResponseDto.properties,
   ).toHaveProperty('status')
+  const cancelOp = doc.paths['/v1/orders/{id}/returns/{returnId}/cancel'].post
+  expect(cancelOp.requestBody.content['application/json'].schema.$ref).toBe(
+    '#/components/schemas/ReturnActionDto',
+  )
+  expect(
+    Object.keys(doc.components.schemas.ReturnActionDto.properties),
+  ).toEqual(['requestId'])
+  expect(
+    doc.components.schemas.OrderReturnResponseDto.properties.status.enum,
+  ).toContain('CANCELLED')
+  expect(
+    doc.components.schemas.TrackingReturnDto.properties.status.enum,
+  ).toContain('CANCELLED')
   const requestDto = doc.components.schemas.CreateOrderReturnDto.properties
   expect(Object.keys(requestDto).sort()).toEqual([
     'orderLineId',

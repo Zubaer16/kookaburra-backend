@@ -14,6 +14,7 @@ import {
   ApiBearerAuth,
   ApiConflictResponse,
   ApiForbiddenResponse,
+  ApiNotFoundResponse,
   ApiOkResponse,
   ApiOperation,
   ApiTags,
@@ -57,6 +58,26 @@ export class ReturnsCustomerController {
   ) {
     return this.returns.request(req.authUser!.id, id, body)
   }
+  @Post(':returnId/cancel')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary:
+      'Withdraw own REQUESTED return before Admin approval; no stock or refund change',
+  })
+  @ApiOkResponse({ type: OrderReturnResponseDto })
+  @ApiConflictResponse({ description: 'Return is no longer pending' })
+  @ApiNotFoundResponse({
+    description: 'Order or return not found for customer',
+  })
+  cancelPending(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('returnId', ParseUUIDPipe) returnId: string,
+    @Req() req: AuthenticatedRequest,
+    @Body() body: ReturnActionDto,
+  ) {
+    return this.returns.cancelPending(req.authUser!.id, id, returnId, body)
+  }
+
   @Get()
   @ApiOperation({ summary: 'List own returns and inspection/restock status' })
   @ApiOkResponse({ type: OrderReturnResponseDto, isArray: true })

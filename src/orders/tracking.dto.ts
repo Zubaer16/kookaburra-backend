@@ -33,6 +33,7 @@ export class TrackingReturnDto {
       'REQUESTED',
       'APPROVED',
       'REJECTED',
+      'CANCELLED',
       'RECEIVED_RESTOCKABLE',
       'RECEIVED_DAMAGED',
       'RESTOCKED',
