@@ -15,9 +15,24 @@ test('04D-2B-3 admin cancellation requires JWT, Admin role, orders.manage and va
     expect(
       (await request.post(url, { headers: bearer(customer.token) })).status(),
     ).toBe(403)
+    // STAFF defaults to SUPPORT, which has orders.manage. Assign a role
+    // without that permission so this assertion exercises the actual gate.
+    await f.db.staffRoleAssignment.upsert({
+      where: { userId: staff.id },
+      create: { userId: staff.id, roleKey: 'CATALOG_EDITOR' },
+      update: { roleKey: 'CATALOG_EDITOR' },
+    })
     expect(
       (await request.post(url, { headers: bearer(staff.token) })).status(),
     ).toBe(403)
+    // Permissions are resolved on each request, even with the same JWT.
+    await f.db.staffRoleAssignment.update({
+      where: { userId: staff.id },
+      data: { roleKey: 'SUPPORT' },
+    })
+    expect(
+      (await request.post(url, { headers: bearer(staff.token) })).status(),
+    ).toBe(404)
     expect(
       (await request.post(url, { headers: bearer(owner.token) })).status(),
     ).toBe(404)

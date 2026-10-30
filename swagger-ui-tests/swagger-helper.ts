@@ -190,8 +190,11 @@ async function authorizeSchemeInSwagger(
   // "Authorize" (particularly for API-key schemes). The strict role/name
   // selector previously waited until the entire 4-minute test timed out.
   // Both schemes render the same auth-container controls.
-  const logout = scheme.locator('button.logout')
-  if (await logout.count()) await logout.click({ timeout: 5_000 })
+  const logout = scheme.getByRole('button', {
+    name: 'Remove authorization',
+    exact: true,
+  })
+  if (await logout.isVisible()) await logout.click({ timeout: 5_000 })
   const input = scheme.locator('input').first()
   await expect(input).toBeVisible({ timeout: 5_000 })
   await input.fill(token)
