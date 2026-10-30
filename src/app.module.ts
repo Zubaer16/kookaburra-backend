@@ -15,6 +15,7 @@ import { WishlistModule } from './wishlist/wishlist.module'
 import { AccountModule } from './account/account.module'
 import { CustomersModule } from './customers/customers.module'
 import { StoreProfileModule } from './store-profile/store-profile.module'
+import { StoreContentModule } from './store-content/store-content.module'
 
 @Module({
   imports: [
@@ -33,6 +34,7 @@ import { StoreProfileModule } from './store-profile/store-profile.module'
     AccountModule,
     CustomersModule,
     StoreProfileModule,
+    StoreContentModule,
   ],
 })
 export class AppModule {}

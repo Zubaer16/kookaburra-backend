@@ -57,7 +57,8 @@
     "test:api:visual:password-change": "npm run build && node scripts/run-api-tests.cjs visual-password-change",
     "test:api:visual:email-verification": "npm run build && node scripts/run-api-tests.cjs visual-email-verification",
     "test:api:visual:password-reset": "npm run build && node scripts/run-api-tests.cjs visual-password-reset",
-    "test:api:visual:store-profile": "npm run build && node scripts/run-api-tests.cjs visual-store-profile"
+    "test:api:visual:store-profile": "npm run build && node scripts/run-api-tests.cjs visual-store-profile",
+    "test:api:visual:store-content": "npm run build && node scripts/run-api-tests.cjs visual-store-content"
   },
   "engines": {
     "node": ">=24.11.0 <25"

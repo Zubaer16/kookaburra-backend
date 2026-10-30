@@ -35,6 +35,7 @@ const allowed = [
   'visual-email-verification',
   'visual-password-reset',
   'visual-store-profile',
+  'visual-store-content',
   'visual-report',
   'security',
 ]
@@ -214,7 +215,8 @@ try {
     mode === 'visual-password-change' ||
     mode === 'visual-email-verification' ||
     mode === 'visual-password-reset' ||
-    mode === 'visual-store-profile'
+    mode === 'visual-store-profile' ||
+    mode === 'visual-store-content'
   ) {
     safe.MEDIA_PROVIDER = 'disk'
     safe.MEDIA_DISK_ROOT = path.join(
@@ -246,7 +248,8 @@ try {
       mode === 'visual-password-change' ||
       mode === 'visual-email-verification' ||
       mode === 'visual-password-reset' ||
-      mode === 'visual-store-profile'
+      mode === 'visual-store-profile' ||
+      mode === 'visual-store-content'
       ? [
           'test',
           '--config=playwright.swagger.config.mjs',
@@ -301,6 +304,9 @@ try {
             : []),
           ...(mode === 'visual-store-profile'
             ? ['--grep', '05B-1 Swagger Chromium: OWNER store identity']
+            : []),
+          ...(mode === 'visual-store-content'
+            ? ['--grep', '05B-2 Swagger Chromium: OWNER store content']
             : []),
         ]
       : mode === 'security'

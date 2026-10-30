@@ -895,3 +895,21 @@ model StoreProfile {
 
   @@map("store_profiles")
 }
+
+
+// G3/05B-2. Optional public plain-text content; keep out of checkout/order/payment.
+// Explicit no-content response when absent; no demo-brand data seed.
+model StoreContent {
+  key            String   @id @db.VarChar(20)
+  revision       Int      @default(1)
+  seoTitle       String   @default("") @map("seo_title") @db.VarChar(70)
+  seoDescription String   @default("") @map("seo_description") @db.VarChar(180)
+  footerText     String   @default("") @map("footer_text") @db.VarChar(240)
+  privacyPolicy  String   @default("") @map("privacy_policy") @db.Text
+  termsOfService String   @default("") @map("terms_of_service") @db.Text
+  returnPolicy   String   @default("") @map("return_policy") @db.Text
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  @@map("store_contents")
+}

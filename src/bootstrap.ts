@@ -173,6 +173,14 @@ export async function createHttpApp(): Promise<INestApplication> {
         'OWNER-managed single-installation store profile',
       )
       .addTag(
+        'Store Content / Public',
+        'Plain-text SEO, footer and legal policy publication',
+      )
+      .addTag(
+        'Store Content / Admin',
+        'OWNER-only revision-checked content management',
+      )
+      .addTag(
         'Workspace / Admin',
         'JWT-only staff workspace roles and persistent permission grants',
       )
