@@ -165,6 +165,14 @@ export async function createHttpApp(): Promise<INestApplication> {
         'Permission-gated customer directory, search and non-financial order overview',
       )
       .addTag(
+        'Store Profile / Public',
+        'Public white-label identity, support and safe website URL',
+      )
+      .addTag(
+        'Store Profile / Admin',
+        'OWNER-managed single-installation store profile',
+      )
+      .addTag(
         'Workspace / Admin',
         'JWT-only staff workspace roles and persistent permission grants',
       )

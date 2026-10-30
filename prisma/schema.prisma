@@ -880,3 +880,18 @@ model OrderReplacementEvent {
   @@index([replacementId, createdAt])
   @@map("order_replacement_events")
 }
+
+// G3/05B-1: exactly one profile per independently deployed single-tenant shop.
+// This is NOT a tenant registry and must not be seeded from Admin preview fixtures.
+model StoreProfile {
+  key           String   @id @db.VarChar(20)
+  storeName     String   @map("store_name") @db.VarChar(70)
+  supportEmail  String   @map("support_email") @db.VarChar(120)
+  websiteUrl    String   @default("") @map("website_url") @db.VarChar(200)
+  timezone      String   @db.VarChar(64)
+  supportNotice String   @default("") @map("support_notice") @db.VarChar(180)
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  @@map("store_profiles")
+}

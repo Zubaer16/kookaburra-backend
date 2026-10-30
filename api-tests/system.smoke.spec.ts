@@ -46,6 +46,8 @@ test.describe('System & OpenAPI', () => {
       'Payments / Webhooks',
       'Checkout / Admin',
       'Customers / Admin',
+      'Store Profile / Public',
+      'Store Profile / Admin',
       'Workspace / Admin',
     ])
     for (const endpoint of [
@@ -75,6 +77,8 @@ test.describe('System & OpenAPI', () => {
       '/v1/admin/staff/{id}',
       '/v1/admin/customers',
       '/v1/admin/customers/{id}',
+      '/v1/store/profile',
+      '/v1/admin/store/profile',
     ]) {
       expect(doc.paths, `Missing OpenAPI path ${endpoint}`).toHaveProperty(
         endpoint,
