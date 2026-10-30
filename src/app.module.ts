@@ -17,6 +17,7 @@ import { CustomersModule } from './customers/customers.module'
 import { StoreProfileModule } from './store-profile/store-profile.module'
 import { StoreContentModule } from './store-content/store-content.module'
 import { StoreBrandingModule } from './store-branding/store-branding.module'
+import { StoreBootstrapModule } from './store-bootstrap/store-bootstrap.module'
 
 @Module({
   imports: [
@@ -37,6 +38,7 @@ import { StoreBrandingModule } from './store-branding/store-branding.module'
     StoreProfileModule,
     StoreContentModule,
     StoreBrandingModule,
+    StoreBootstrapModule,
   ],
 })
 export class AppModule {}

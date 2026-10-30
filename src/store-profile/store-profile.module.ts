@@ -10,5 +10,6 @@ import { StoreProfileService } from './store-profile.service'
   imports: [AuthModule],
   controllers: [PublicStoreProfileController, AdminStoreProfileController],
   providers: [StoreProfileService],
+  exports: [StoreProfileService],
 })
 export class StoreProfileModule {}

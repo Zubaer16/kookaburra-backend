@@ -10,5 +10,6 @@ import { StoreBrandingService } from './store-branding.service'
   imports: [AuthModule],
   controllers: [PublicStoreBrandingController, AdminStoreBrandingController],
   providers: [StoreBrandingService],
+  exports: [StoreBrandingService],
 })
 export class StoreBrandingModule {}

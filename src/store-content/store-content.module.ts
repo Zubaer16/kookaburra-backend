@@ -10,5 +10,6 @@ import { StoreContentService } from './store-content.service'
   imports: [AuthModule],
   controllers: [PublicStoreContentController, AdminStoreContentController],
   providers: [StoreContentService],
+  exports: [StoreContentService],
 })
 export class StoreContentModule {}

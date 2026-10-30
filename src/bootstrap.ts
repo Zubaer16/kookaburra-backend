@@ -81,6 +81,10 @@ export async function createHttpApp(): Promise<INestApplication> {
         'Back-office identity (no public staff sign-up)',
       )
       .addTag(
+        'Store Bootstrap / Public',
+        'Safe profile, content and verified branding in a single public response',
+      )
+      .addTag(
         'Catalog / Storefront',
         'Public categories and active product catalogue',
       )
