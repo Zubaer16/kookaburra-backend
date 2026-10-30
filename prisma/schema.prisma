@@ -375,6 +375,8 @@ model MediaAsset {
   createdAt          DateTime          @default(now()) @map("created_at")
   updatedAt          DateTime          @updatedAt @map("updated_at")
   productLinks       ProductMedia[]
+  brandLogoRefs      StoreBranding[] @relation("StoreBrandLogo")
+  brandFaviconRefs   StoreBranding[] @relation("StoreBrandFavicon")
   deletionJob        MediaDeletionJob?
 
   @@index([status, uploadExpiresAt])
@@ -912,4 +914,21 @@ model StoreContent {
   updatedAt      DateTime @updatedAt @map("updated_at")
 
   @@map("store_contents")
+}
+
+// G3/05B-3: verified media bindings. Both references protect shared provider assets
+// against cleanup. One single-tenant store; never accept raw provider URLs.
+model StoreBranding {
+  key           String      @id @db.VarChar(20)
+  revision      Int         @default(1)
+  logoMediaId   String?     @map("logo_media_id") @db.Uuid
+  logoMedia     MediaAsset? @relation("StoreBrandLogo", fields: [logoMediaId], references: [id], onDelete: Restrict)
+  faviconMediaId String?    @map("favicon_media_id") @db.Uuid
+  faviconMedia  MediaAsset? @relation("StoreBrandFavicon", fields: [faviconMediaId], references: [id], onDelete: Restrict)
+  createdAt     DateTime    @default(now()) @map("created_at")
+  updatedAt     DateTime    @updatedAt @map("updated_at")
+
+  @@index([logoMediaId])
+  @@index([faviconMediaId])
+  @@map("store_brandings")
 }

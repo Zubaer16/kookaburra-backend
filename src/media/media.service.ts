@@ -184,7 +184,11 @@ export class MediaService {
         id,
         provider: 'disk',
         status: 'ACTIVE',
-        productLinks: { some: { product: { status: 'ACTIVE' } } },
+        OR: [
+          { productLinks: { some: { product: { status: 'ACTIVE' } } } },
+          { brandLogoRefs: { some: {} } },
+          { brandFaviconRefs: { some: {} } },
+        ],
       },
     })
     if (!asset) throw new NotFoundException('Published image not found')
@@ -213,13 +217,22 @@ export class MediaService {
     for (const id of [...new Set(ids)].sort())
       await tx.$queryRaw`SELECT id FROM media_assets WHERE id = ${id}::uuid FOR UPDATE`
   }
+  // Shared protection for product gallery AND persistent store branding references.
+  // Call only under the deterministic media row lock.
+  private async isReferenced(tx: Prisma.TransactionClient, id: string) {
+    if (await tx.productMedia.count({ where: { mediaId: id } })) return true
+    return (
+      (await tx.storeBranding.count({
+        where: { OR: [{ logoMediaId: id }, { faviconMediaId: id }] },
+      })) > 0
+    )
+  }
   private async scheduleDeletion(
     tx: Prisma.TransactionClient,
     id: string,
     when: Date,
   ) {
-    const references = await tx.productMedia.count({ where: { mediaId: id } })
-    if (references > 0) return false
+    if (await this.isReferenced(tx, id)) return false
     const asset = await tx.mediaAsset.findUnique({ where: { id } })
     if (
       !asset ||
@@ -362,7 +375,7 @@ export class MediaService {
         await this.lockMedia(tx, [id])
         const asset = await tx.mediaAsset.findUnique({ where: { id } })
         if (!asset) throw new NotFoundException('Media not found')
-        if (await tx.productMedia.count({ where: { mediaId: id } }))
+        if (await this.isReferenced(tx, id))
           throw new ConflictException(
             'Detach media from all products before deletion',
           )
@@ -423,7 +436,7 @@ export class MediaService {
           !asset.objectKey.startsWith(`${asset.namespace}/`)
         )
           throw new ConflictException('Wrong storage namespace')
-        if (await tx.productMedia.count({ where: { mediaId: job.mediaId } }))
+        if (await this.isReferenced(tx, job.mediaId))
           throw new ConflictException('Media remains referenced')
         await tx.mediaAsset.update({
           where: { id: job.mediaId },
@@ -469,6 +482,8 @@ export class MediaService {
         status: 'ACTIVE',
         updatedAt: { lt: cutoff },
         productLinks: { none: {} },
+        brandLogoRefs: { none: {} },
+        brandFaviconRefs: { none: {} },
         // Never reset an in-flight or failed deletion during orphan repair.
         OR: [
           { deletionJob: { is: null } },
@@ -526,7 +541,7 @@ export class MediaService {
             current.namespace !== namespace ||
             current.status !== 'ACTIVE' ||
             current.updatedAt >= cutoff ||
-            (await tx.productMedia.count({ where: { mediaId: id } })) > 0
+            (await this.isReferenced(tx, id))
           )
             return false
           const existingJob = await tx.mediaDeletionJob.findUnique({
@@ -566,7 +581,7 @@ export class MediaService {
             !current ||
             current.namespace !== namespace ||
             current.status !== 'PENDING_DELETE' ||
-            (await tx.productMedia.count({ where: { mediaId: id } })) > 0
+            (await this.isReferenced(tx, id))
           )
             return false
           const job = await tx.mediaDeletionJob.findUnique({
@@ -662,7 +677,7 @@ export class MediaService {
           !media ||
           media.status !== 'PENDING_DELETE' ||
           rendering ||
-          (await tx.productMedia.count({ where: { mediaId: job.mediaId } }))
+          (await this.isReferenced(tx, job.mediaId))
         )
           return null
         const claim = await tx.mediaDeletionJob.updateMany({

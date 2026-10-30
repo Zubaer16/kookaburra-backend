@@ -16,6 +16,7 @@ import { AccountModule } from './account/account.module'
 import { CustomersModule } from './customers/customers.module'
 import { StoreProfileModule } from './store-profile/store-profile.module'
 import { StoreContentModule } from './store-content/store-content.module'
+import { StoreBrandingModule } from './store-branding/store-branding.module'
 
 @Module({
   imports: [
@@ -35,6 +36,7 @@ import { StoreContentModule } from './store-content/store-content.module'
     CustomersModule,
     StoreProfileModule,
     StoreContentModule,
+    StoreBrandingModule,
   ],
 })
 export class AppModule {}

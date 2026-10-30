@@ -71,7 +71,7 @@ export class DiskMediaController {
   @Get('files/:id')
   @ApiOperation({
     summary:
-      'Read verified VPS image only when attached to an active public product',
+      'Read verified VPS image attached to an active public product or store brand',
   })
   @ApiOkResponse({
     description:

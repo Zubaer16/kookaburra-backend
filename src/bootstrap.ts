@@ -181,6 +181,14 @@ export async function createHttpApp(): Promise<INestApplication> {
         'OWNER-only revision-checked content management',
       )
       .addTag(
+        'Store Branding / Public',
+        'Public verified logo and favicon media references',
+      )
+      .addTag(
+        'Store Branding / Admin',
+        'OWNER-only revision-safe Media Library branding bindings',
+      )
+      .addTag(
         'Workspace / Admin',
         'JWT-only staff workspace roles and persistent permission grants',
       )
